@@ -1,0 +1,26 @@
+[
+  {
+    "type": "click",
+    "label": "Click",
+    "category": "command",
+    "codeTemplate": "cy.get('{{selector}}').click();"
+  },
+  {
+    "type": "type",
+    "label": "Type",
+    "category": "command",
+    "codeTemplate": "cy.get('{{selector}}').type('{{value}}');"
+  },
+  {
+    "type": "visit",
+    "label": "Visit",
+    "category": "command",
+    "codeTemplate": "cy.visit('{{url}}');"
+  },
+  {
+    "type": "should",
+    "label": "Assert",
+    "category": "command",
+    "codeTemplate": "cy.get('{{selector}}').should('{{assertion}}'[[value:, '{{value}}']]);"
+  }
+]

@@ -1,0 +1,65 @@
+/**
+ * Flow canvas / Center Panel (HLD §6.4, §7).
+ *
+ * Step 1 responsibility: read the flow tree from the store and render it. Shows an
+ * empty state when there is no flow. It owns no flow state (HLD §6.4) — it reads
+ * from the store and, in later steps, dispatches actions.
+ */
+
+import type { DragEvent } from 'react';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import { addNode, selectNode } from '../../state/builderSlice';
+import { readDragPayload } from '../dnd';
+import { TreeNode } from './TreeNode';
+
+export function Canvas() {
+  const dispatch = useAppDispatch();
+  const flow = useAppSelector((state) => state.flow);
+
+  // Clicking the empty canvas background clears the current selection (HLD §13).
+  function handleBackgroundClick() {
+    dispatch(selectNode(null));
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+  }
+
+  // A palette drop on the empty canvas creates the root node (HLD §18.6:
+  // a single tree). When a root already exists, background drops are ignored;
+  // nodes must be dropped onto an existing node.
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (flow) return;
+    const payload = readDragPayload(event.dataTransfer);
+    if (payload?.kind === 'palette') {
+      dispatch(addNode({ parentId: null, type: payload.nodeType }));
+    }
+  }
+
+  if (!flow) {
+    return (
+      <div
+        className="canvas canvas--empty"
+        data-testid="canvas"
+        onClick={handleBackgroundClick}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        Drag a structural node here to start building.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="canvas"
+      data-testid="canvas"
+      onClick={handleBackgroundClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <TreeNode node={flow} />
+    </div>
+  );
+}

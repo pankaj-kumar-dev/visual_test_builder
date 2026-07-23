@@ -1,0 +1,23 @@
+{
+  "click": [
+    { "key": "selector", "label": "Selector", "type": "text", "required": true }
+  ],
+  "type": [
+    { "key": "selector", "label": "Selector", "type": "text", "required": true },
+    { "key": "value", "label": "Value", "type": "text", "required": true }
+  ],
+  "visit": [
+    { "key": "url", "label": "URL", "type": "text", "required": true }
+  ],
+  "should": [
+    { "key": "selector", "label": "Selector", "type": "text", "required": true },
+    {
+      "key": "assertion",
+      "label": "Assertion",
+      "type": "dropdown",
+      "required": true,
+      "options": ["be.visible", "not.exist", "contain", "have.value"]
+    },
+    { "key": "value", "label": "Value", "type": "text", "required": false }
+  ]
+}

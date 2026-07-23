@@ -1,0 +1,38 @@
+[
+  {
+    "type": "describe",
+    "label": "Describe Block",
+    "category": "structural",
+    "allowedChildren": ["it", "beforeAll", "afterAll"],
+    "props": [
+      { "key": "label", "label": "Suite Name", "type": "text", "required": true }
+    ],
+    "codeTemplate": "describe('{{label}}', () => {\n{{children}}\n});"
+  },
+  {
+    "type": "it",
+    "label": "Test Case",
+    "category": "structural",
+    "allowedChildren": ["click", "type", "visit", "should"],
+    "props": [
+      { "key": "label", "label": "Test Name", "type": "text", "required": true }
+    ],
+    "codeTemplate": "it('{{label}}', () => {\n{{children}}\n});"
+  },
+  {
+    "type": "beforeAll",
+    "label": "Before All",
+    "category": "structural",
+    "allowedChildren": ["click", "type", "visit", "should"],
+    "props": [],
+    "codeTemplate": "before(() => {\n{{children}}\n});"
+  },
+  {
+    "type": "afterAll",
+    "label": "After All",
+    "category": "structural",
+    "allowedChildren": ["click", "type", "visit", "should"],
+    "props": [],
+    "codeTemplate": "after(() => {\n{{children}}\n});"
+  }
+]
