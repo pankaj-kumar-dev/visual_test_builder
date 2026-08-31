@@ -8,19 +8,33 @@
 
 import type { FlowNode } from '../../domain/types';
 import type { Registry } from '../../registry';
+import { canContinueChain } from '../../engine/chain';
 
 /**
  * Whether a node of `childType` may be dropped as a child of `parentType`.
  * True only when the parent is a structural block whose `allowedChildren`
  * includes the child type. Command nodes are leaves and accept no children.
+ *
+ * When the parent is a chain-composition node (Phase 2, engine/chain.ts), the
+ * coarse `allowedChildren` membership check isn't enough — position matters
+ * (a chain must start with a root command and continue only with subject
+ * commands) — so `existingChildren` (the parent's current children, in order)
+ * is also checked against the registry's `chainRole` metadata. Non-chain
+ * parents ignore `existingChildren` entirely, so passing `[]` is always safe.
  */
 export function canDropInto(
   parentType: string,
   childType: string,
   registry: Registry,
+  existingChildren: FlowNode[] = [],
 ): boolean {
   const parent = registry.getBlock(parentType);
-  return parent ? parent.allowedChildren.includes(childType) : false;
+  if (!parent) return false;
+  if (!parent.allowedChildren.includes(childType)) return false;
+  if (parent.childComposition === 'chain') {
+    return canContinueChain(existingChildren, childType, registry);
+  }
+  return true;
 }
 
 /**

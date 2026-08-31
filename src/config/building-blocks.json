@@ -3,7 +3,11 @@
     "type": "describe",
     "label": "Describe Block",
     "category": "structural",
-    "allowedChildren": ["it", "beforeAll", "afterAll"],
+    "group": "structural",
+    "subgroup": "suite",
+    "description": "A test suite that groups test cases and hooks.",
+    "keywords": ["suite", "group", "context"],
+    "allowedChildren": ["it", "beforeAll", "afterAll", "beforeEach", "afterEach"],
     "props": [
       { "key": "label", "label": "Suite Name", "type": "text", "required": true }
     ],
@@ -13,7 +17,16 @@
     "type": "it",
     "label": "Test Case",
     "category": "structural",
-    "allowedChildren": ["click", "type", "visit", "should"],
+    "group": "structural",
+    "subgroup": "suite",
+    "description": "A single test case inside a suite.",
+    "keywords": ["test", "spec", "case", "scenario"],
+    "allowedChildren": [
+      "click", "type", "visit", "should",
+      "get", "contains", "find", "first", "last", "eq",
+      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
+      "chain"
+    ],
     "props": [
       { "key": "label", "label": "Test Name", "type": "text", "required": true }
     ],
@@ -23,7 +36,16 @@
     "type": "beforeAll",
     "label": "Before All",
     "category": "structural",
-    "allowedChildren": ["click", "type", "visit", "should"],
+    "group": "structural",
+    "subgroup": "hooks",
+    "description": "Runs once before all tests in the suite.",
+    "keywords": ["hook", "setup", "before"],
+    "allowedChildren": [
+      "click", "type", "visit", "should",
+      "get", "contains", "find", "first", "last", "eq",
+      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
+      "chain"
+    ],
     "props": [],
     "codeTemplate": "before(() => {\n{{children}}\n});"
   },
@@ -31,8 +53,68 @@
     "type": "afterAll",
     "label": "After All",
     "category": "structural",
-    "allowedChildren": ["click", "type", "visit", "should"],
+    "group": "structural",
+    "subgroup": "hooks",
+    "description": "Runs once after all tests in the suite.",
+    "keywords": ["hook", "teardown", "cleanup", "after"],
+    "allowedChildren": [
+      "click", "type", "visit", "should",
+      "get", "contains", "find", "first", "last", "eq",
+      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
+      "chain"
+    ],
     "props": [],
     "codeTemplate": "after(() => {\n{{children}}\n});"
+  },
+  {
+    "type": "beforeEach",
+    "label": "Before Each",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "hooks",
+    "description": "Runs before every test in the suite.",
+    "keywords": ["hook", "setup", "each", "before"],
+    "allowedChildren": [
+      "click", "type", "visit", "should",
+      "get", "contains", "find", "first", "last", "eq",
+      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
+      "chain"
+    ],
+    "props": [],
+    "codeTemplate": "beforeEach(() => {\n{{children}}\n});"
+  },
+  {
+    "type": "afterEach",
+    "label": "After Each",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "hooks",
+    "description": "Runs after every test in the suite.",
+    "keywords": ["hook", "teardown", "cleanup", "each", "after"],
+    "allowedChildren": [
+      "click", "type", "visit", "should",
+      "get", "contains", "find", "first", "last", "eq",
+      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
+      "chain"
+    ],
+    "props": [],
+    "codeTemplate": "afterEach(() => {\n{{children}}\n});"
+  },
+  {
+    "type": "chain",
+    "label": "Chain",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "childComposition": "chain",
+    "description": "Compose commands into one Cypress subject expression.",
+    "keywords": ["pipeline", "subject", "compose", "sequence"],
+    "allowedChildren": [
+      "get", "contains", "find", "first", "last", "eq",
+      "click", "type", "clear", "check", "uncheck", "select",
+      "dblclick", "focus", "blur", "scrollIntoView", "should"
+    ],
+    "props": [],
+    "codeTemplate": ""
   }
 ]

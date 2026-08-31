@@ -1,23 +1,179 @@
 {
-  "click": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true }
-  ],
-  "type": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true },
-    { "key": "value", "label": "Value", "type": "text", "required": true }
-  ],
   "visit": [
     { "key": "url", "label": "URL", "type": "text", "required": true }
   ],
+
+  "get": [
+    { "key": "selector", "label": "Selector", "type": "text", "required": true }
+  ],
+  "contains": [
+    { "key": "text", "label": "Text", "type": "text", "required": true },
+    { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false }
+  ],
+  "find": [
+    {
+      "key": "selector",
+      "label": "Container Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "target", "label": "Descendant Selector", "type": "text", "required": true }
+  ],
+  "first": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "last": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "eq": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "index", "label": "Index", "type": "text", "required": true }
+  ],
+
+  "click": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "type": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "value", "label": "Value", "type": "text", "required": true }
+  ],
+  "clear": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "check": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "uncheck": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "select": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "value", "label": "Option Value", "type": "text", "required": true }
+  ],
+  "dblclick": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "focus": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "blur": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "scrollIntoView": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+
   "should": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true },
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
     {
       "key": "assertion",
       "label": "Assertion",
       "type": "dropdown",
       "required": true,
-      "options": ["be.visible", "not.exist", "contain", "have.value"]
+      "options": [
+        "be.visible",
+        "not.exist",
+        "contain",
+        "have.value",
+        "exist",
+        "be.hidden",
+        "be.enabled",
+        "be.disabled",
+        "be.checked",
+        "not.be.checked",
+        "have.text",
+        "contain.text",
+        "have.attr",
+        "have.class",
+        "have.length"
+      ]
     },
-    { "key": "value", "label": "Value", "type": "text", "required": false }
+    { "key": "value", "label": "Value", "type": "text", "required": false },
+    { "key": "count", "label": "Count (numeric, for have.length)", "type": "text", "required": false }
   ]
 }

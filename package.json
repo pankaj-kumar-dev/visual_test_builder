@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "cy:open": "cypress open",
     "cy:run": "cypress run"
   },
@@ -23,6 +25,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "cypress": "^13.13.0",
     "typescript": "^5.5.4",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "vitest": "^4.1.11"
   }
 }

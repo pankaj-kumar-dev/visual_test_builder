@@ -10,7 +10,9 @@
 import blocks from '../config/building-blocks.json';
 import functions from '../config/functions.json';
 import commandProps from '../config/function-props.json';
+import categories from '../config/categories.json';
 import type {
+  CategoryDef,
   CommandNodeDef,
   PropDef,
   StructuralNodeDef,
@@ -36,6 +38,7 @@ export function getRegistry(): Registry {
       blocks: blocks as StructuralNodeDef[],
       functions: functions as CommandNodeDef[],
       commandProps: commandProps as Record<string, PropDef[]>,
+      categories: categories as CategoryDef[],
     });
   }
   return cached;

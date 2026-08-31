@@ -1,0 +1,78 @@
+[
+  {
+    "id": "structural",
+    "label": "Structural",
+    "description": "Suites, test cases, hooks, and command composition.",
+    "subgroups": [
+      { "id": "suite", "label": "Suite" },
+      { "id": "hooks", "label": "Hooks" },
+      { "id": "composition", "label": "Composition" }
+    ]
+  },
+  {
+    "id": "traversal",
+    "label": "Traversal",
+    "description": "Query the DOM and narrow the current subject.",
+    "subgroups": [
+      { "id": "element", "label": "Element" },
+      { "id": "position", "label": "Position" }
+    ]
+  },
+  {
+    "id": "action",
+    "label": "Action",
+    "description": "Interact with the current subject.",
+    "subgroups": [
+      { "id": "mouse", "label": "Mouse" },
+      { "id": "input", "label": "Input" },
+      { "id": "focus", "label": "Focus" },
+      { "id": "viewport", "label": "Viewport" }
+    ]
+  },
+  {
+    "id": "assertion",
+    "label": "Assertion",
+    "description": "Assert on the current subject."
+  },
+  {
+    "id": "utility",
+    "label": "Utility",
+    "description": "Waiting, logging, and other helpers."
+  },
+  {
+    "id": "network",
+    "label": "Network",
+    "description": "Intercept, stub, and await network activity."
+  },
+  {
+    "id": "browser",
+    "label": "Browser",
+    "description": "Navigation and browser-level control.",
+    "subgroups": [{ "id": "navigation", "label": "Navigation" }]
+  },
+  {
+    "id": "data",
+    "label": "Data",
+    "description": "Fixtures, variables, and environment values."
+  },
+  {
+    "id": "control-flow",
+    "label": "Control Flow",
+    "description": "Conditionals, loops, and retries."
+  },
+  {
+    "id": "validation",
+    "label": "Validation",
+    "description": "Reusable validation building blocks."
+  },
+  {
+    "id": "workflow",
+    "label": "Workflow",
+    "description": "Higher-level, reusable test workflows."
+  },
+  {
+    "id": "custom-command",
+    "label": "Custom Command",
+    "description": "Project-defined Cypress custom commands."
+  }
+]

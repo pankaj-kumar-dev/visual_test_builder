@@ -37,7 +37,7 @@ export function useNodeDrop(node: FlowNode): {
     // Only palette drops target a node as parent; ignore move drags here.
     if (active?.kind !== 'palette') return;
 
-    if (canDropInto(node.type, active.nodeType, registry)) {
+    if (canDropInto(node.type, active.nodeType, registry, node.children ?? [])) {
       // preventDefault marks this as a valid drop target so `drop` will fire.
       event.preventDefault();
       setDropState('valid');
@@ -58,7 +58,7 @@ export function useNodeDrop(node: FlowNode): {
     const payload = readDragPayload(event.dataTransfer);
     if (
       payload?.kind === 'palette' &&
-      canDropInto(node.type, payload.nodeType, registry)
+      canDropInto(node.type, payload.nodeType, registry, node.children ?? [])
     ) {
       dispatch(addNode({ parentId: node.id, type: payload.nodeType }));
     }

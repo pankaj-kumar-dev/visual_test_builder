@@ -3,6 +3,10 @@ node_modules/
 
 # Production build
 dist/
+/docs
+/HLD_Visual_Test_Builder.md
+docs/
+
 
 # Cypress artifacts
 cypress/screenshots/

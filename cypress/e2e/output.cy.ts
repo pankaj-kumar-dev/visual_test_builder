@@ -1,9 +1,11 @@
 /**
- * Smoke — Output panel: generated code correctness and copy
- * (SM-09, SM-10).
+ * Smoke — Code drawer: generated code correctness and copy
+ * (SM-09, SM-10). Renamed from "Output panel" — Phase 2 UI moved this content
+ * from a permanent bottom panel into the right-side code drawer; opened here via
+ * `openCodeDrawer()` since it is closed by default.
  */
 
-import { buildLoginFlow } from '../support/flows';
+import { buildLoginFlow, openCodeDrawer } from '../support/flows';
 
 const EXPECTED = `describe('Login Suite', () => {
   it('Successful Login', () => {
@@ -12,10 +14,11 @@ const EXPECTED = `describe('Login Suite', () => {
   });
 });`;
 
-describe('Output panel', () => {
+describe('Code drawer', () => {
   beforeEach(() => {
     cy.visit('/');
     buildLoginFlow();
+    openCodeDrawer();
   });
 
   context('SM-09 — generated code matches the expected Cypress', () => {

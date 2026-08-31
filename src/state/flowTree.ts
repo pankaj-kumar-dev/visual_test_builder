@@ -23,6 +23,26 @@ export function findNode(root: FlowNode, id: string): FlowNode | null {
 }
 
 /**
+ * Ids of every node on the path from the root down to (but excluding) `id`.
+ * Returns null when `id` is not in the tree. Used to expand a hidden node's
+ * ancestors when something outside the canvas — the code drawer's unresolved
+ * warning list — needs to reveal it.
+ */
+export function findAncestorIds(root: FlowNode, id: string): string[] | null {
+  if (root.id === id) return [];
+  for (const child of root.children ?? []) {
+    const below = findAncestorIds(child, id);
+    if (below) return [root.id, ...below];
+  }
+  return null;
+}
+
+/** Ids of `node` and every descendant. Used to clean up per-node UI state on delete. */
+export function collectSubtreeIds(node: FlowNode): string[] {
+  return [node.id, ...(node.children ?? []).flatMap(collectSubtreeIds)];
+}
+
+/**
  * Return a new tree in which the node with `id` is replaced by `transform(node)`.
  * If no node matches, the original tree is returned unchanged (same reference).
  */

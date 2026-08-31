@@ -1,26 +1,216 @@
 [
   {
+    "type": "visit",
+    "label": "Visit",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Navigate the browser to a URL.",
+    "keywords": ["url", "navigate", "goto", "open", "page"],
+    "codeTemplate": "cy.visit('{{url}}');"
+  },
+
+  {
+    "type": "get",
+    "label": "Get",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "element",
+    "description": "Select elements by CSS selector.",
+    "keywords": ["query", "css", "selector", "element", "data-testid"],
+    "chainRole": "root",
+    "codeTemplate": "cy.get('{{selector}}');"
+  },
+  {
+    "type": "contains",
+    "label": "Contains",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "element",
+    "description": "Select the element containing the given text.",
+    "keywords": ["text", "label", "search"],
+    "chainRole": "root",
+    "codeTemplate": "cy[[selector:.get('{{selector}}')]].contains('{{text}}');"
+  },
+  {
+    "type": "find",
+    "label": "Find",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "element",
+    "description": "Search for descendants of the current subject.",
+    "keywords": ["descendant", "child", "within", "search"],
+    "chainRole": "subject",
+    "chainTemplate": ".find('{{target}}')",
+    "codeTemplate": "cy.get('{{selector}}').find('{{target}}');"
+  },
+  {
+    "type": "first",
+    "label": "First",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "position",
+    "description": "Narrow to the first element of the current subject.",
+    "keywords": ["index", "position", "head"],
+    "chainRole": "subject",
+    "chainTemplate": ".first()",
+    "codeTemplate": "cy.get('{{selector}}').first();"
+  },
+  {
+    "type": "last",
+    "label": "Last",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "position",
+    "description": "Narrow to the last element of the current subject.",
+    "keywords": ["index", "position", "tail"],
+    "chainRole": "subject",
+    "chainTemplate": ".last()",
+    "codeTemplate": "cy.get('{{selector}}').last();"
+  },
+  {
+    "type": "eq",
+    "label": "Eq",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "position",
+    "description": "Narrow to the element at a zero-based index.",
+    "keywords": ["index", "nth", "position", "row"],
+    "chainRole": "subject",
+    "chainTemplate": ".eq({{index}})",
+    "codeTemplate": "cy.get('{{selector}}').eq({{index}});"
+  },
+
+  {
     "type": "click",
     "label": "Click",
     "category": "command",
+    "group": "action",
+    "subgroup": "mouse",
+    "description": "Click the current subject.",
+    "keywords": ["press", "tap", "button", "mouse"],
+    "chainRole": "subject",
+    "chainTemplate": ".click()",
     "codeTemplate": "cy.get('{{selector}}').click();"
   },
   {
     "type": "type",
     "label": "Type",
     "category": "command",
+    "group": "action",
+    "subgroup": "input",
+    "description": "Type text into the current subject.",
+    "keywords": ["input", "keyboard", "fill", "enter", "text"],
+    "chainRole": "subject",
+    "chainTemplate": ".type('{{value}}')",
     "codeTemplate": "cy.get('{{selector}}').type('{{value}}');"
   },
   {
-    "type": "visit",
-    "label": "Visit",
+    "type": "clear",
+    "label": "Clear",
     "category": "command",
-    "codeTemplate": "cy.visit('{{url}}');"
+    "group": "action",
+    "subgroup": "input",
+    "description": "Clear the value of an input or textarea.",
+    "keywords": ["input", "reset", "empty"],
+    "chainRole": "subject",
+    "chainTemplate": ".clear()",
+    "codeTemplate": "cy.get('{{selector}}').clear();"
   },
+  {
+    "type": "check",
+    "label": "Check",
+    "category": "command",
+    "group": "action",
+    "subgroup": "input",
+    "description": "Check a checkbox or radio input.",
+    "keywords": ["checkbox", "radio", "tick", "toggle"],
+    "chainRole": "subject",
+    "chainTemplate": ".check()",
+    "codeTemplate": "cy.get('{{selector}}').check();"
+  },
+  {
+    "type": "uncheck",
+    "label": "Uncheck",
+    "category": "command",
+    "group": "action",
+    "subgroup": "input",
+    "description": "Uncheck a checkbox input.",
+    "keywords": ["checkbox", "untick", "toggle"],
+    "chainRole": "subject",
+    "chainTemplate": ".uncheck()",
+    "codeTemplate": "cy.get('{{selector}}').uncheck();"
+  },
+  {
+    "type": "select",
+    "label": "Select",
+    "category": "command",
+    "group": "action",
+    "subgroup": "input",
+    "description": "Select an option in a dropdown.",
+    "keywords": ["dropdown", "option", "combobox", "picker", "list"],
+    "chainRole": "subject",
+    "chainTemplate": ".select('{{value}}')",
+    "codeTemplate": "cy.get('{{selector}}').select('{{value}}');"
+  },
+  {
+    "type": "dblclick",
+    "label": "Double Click",
+    "category": "command",
+    "group": "action",
+    "subgroup": "mouse",
+    "description": "Double-click the current subject.",
+    "keywords": ["mouse", "press", "twice"],
+    "chainRole": "subject",
+    "chainTemplate": ".dblclick()",
+    "codeTemplate": "cy.get('{{selector}}').dblclick();"
+  },
+  {
+    "type": "focus",
+    "label": "Focus",
+    "category": "command",
+    "group": "action",
+    "subgroup": "focus",
+    "description": "Focus the current subject.",
+    "keywords": ["keyboard", "active", "tab"],
+    "chainRole": "subject",
+    "chainTemplate": ".focus()",
+    "codeTemplate": "cy.get('{{selector}}').focus();"
+  },
+  {
+    "type": "blur",
+    "label": "Blur",
+    "category": "command",
+    "group": "action",
+    "subgroup": "focus",
+    "description": "Remove focus from the current subject.",
+    "keywords": ["keyboard", "unfocus", "leave"],
+    "chainRole": "subject",
+    "chainTemplate": ".blur()",
+    "codeTemplate": "cy.get('{{selector}}').blur();"
+  },
+  {
+    "type": "scrollIntoView",
+    "label": "Scroll Into View",
+    "category": "command",
+    "group": "action",
+    "subgroup": "viewport",
+    "description": "Scroll the current subject into the viewport.",
+    "keywords": ["scroll", "viewport", "visible"],
+    "chainRole": "subject",
+    "chainTemplate": ".scrollIntoView()",
+    "codeTemplate": "cy.get('{{selector}}').scrollIntoView();"
+  },
+
   {
     "type": "should",
     "label": "Assert",
     "category": "command",
-    "codeTemplate": "cy.get('{{selector}}').should('{{assertion}}'[[value:, '{{value}}']]);"
+    "group": "assertion",
+    "description": "Assert something about the current subject.",
+    "keywords": ["should", "expect", "assertion", "verify", "visible", "text", "length"],
+    "chainRole": "subject",
+    "chainTemplate": ".should('{{assertion}}'[[value:, '{{value}}']][[count:, {{count}}]])",
+    "codeTemplate": "cy.get('{{selector}}').should('{{assertion}}'[[value:, '{{value}}']][[count:, {{count}}]]);"
   }
 ]

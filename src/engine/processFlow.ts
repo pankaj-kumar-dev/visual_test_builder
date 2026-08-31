@@ -11,6 +11,7 @@
 import type { FlowNode } from '../domain/types';
 import { getRegistry } from '../registry';
 import type { Registry } from '../registry';
+import { validateChain } from './chain';
 
 /** Indentation unit applied to each nesting level (HLD §12 example output). */
 const INDENT = '  ';
@@ -73,6 +74,60 @@ function resolveProps(
   return code;
 }
 
+/**
+ * Strip a template's trailing statement semicolon so it can open a chain
+ * expression instead of standing alone. Generic string surgery — works for any
+ * `chainRole: 'root'` command's existing standalone `codeTemplate` (including
+ * one built from optional segments, e.g. `contains`), so no second "chain root"
+ * template needs to be authored per command.
+ */
+function stripTrailingSemicolon(template: string): string {
+  return template.replace(/;\s*$/, '');
+}
+
+/**
+ * Render one chain child as its contribution to the composed expression.
+ * `validateChain` has already confirmed every child has a chain role, so the
+ * lookups here cannot miss.
+ */
+function generateChainFragment(node: FlowNode, reg: Registry): string {
+  const def = reg.getFunction(node.type)!;
+  const template =
+    def.chainRole === 'root' ? stripTrailingSemicolon(def.codeTemplate) : (def.chainTemplate ?? '');
+  return resolveProps(template, node.props ?? {});
+}
+
+/**
+ * Join chain fragments into one expression (Phase 2, HLD-successor §13-style
+ * formatting choice): a two-fragment chain (root + one continuation) reads fine
+ * on one line; three or more break onto their own indented continuation lines,
+ * each two spaces deeper than the opening `cy...` line — matching how a single
+ * standalone statement is already indented one level per nesting depth.
+ */
+function joinChainFragments(fragments: string[]): string {
+  if (fragments.length <= 2) return fragments.join('');
+  const [head, ...rest] = fragments;
+  return head + rest.map((fragment) => `\n${INDENT}${fragment}`).join('');
+}
+
+/**
+ * Generate a `chain` node's composed subject expression (Phase 2, engine/chain.ts).
+ * An invalid chain (empty, missing root, a non-chainable command, a second root)
+ * never reaches template substitution — it renders as a comment placeholder,
+ * mirroring the existing "Unknown Node Type" strategy (HLD §16) rather than
+ * emitting broken Cypress.
+ */
+function generateChain(node: FlowNode, reg: Registry): string {
+  const children = node.children ?? [];
+  const issues = validateChain(children, reg);
+  if (issues.length > 0) {
+    return `// [Invalid chain] — ${issues[0]}`;
+  }
+
+  const fragments = children.map((child) => generateChainFragment(child, reg));
+  return `${joinChainFragments(fragments)};`;
+}
+
 /** Recursively generate the code for a single node and its subtree. */
 function generateNode(node: FlowNode, reg: Registry): string {
   const def = reg.getBlock(node.type) ?? reg.getFunction(node.type);
@@ -81,6 +136,12 @@ function generateNode(node: FlowNode, reg: Registry): string {
   // (HLD §16, "Unknown Node Type").
   if (def === null) {
     return `// [Unknown node: ${node.type}] — not found in registry`;
+  }
+
+  // A chain composes its children into one subject expression instead of the
+  // ordinary independent-statement join below (Phase 2, engine/chain.ts).
+  if ('childComposition' in def && def.childComposition === 'chain') {
+    return generateChain(node, reg);
   }
 
   const childrenCode = node.children?.length

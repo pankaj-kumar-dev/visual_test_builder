@@ -7,7 +7,8 @@
  */
 
 import type { DragEvent } from 'react';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import { useMemo } from 'react';
+import { useAppDispatch, useAppSelector, useUnresolvedNodes } from '../../app/hooks';
 import { addNode, selectNode } from '../../state/builderSlice';
 import { readDragPayload } from '../dnd';
 import { TreeNode } from './TreeNode';
@@ -15,6 +16,13 @@ import { TreeNode } from './TreeNode';
 export function Canvas() {
   const dispatch = useAppDispatch();
   const flow = useAppSelector((state) => state.flow);
+  const unresolved = useUnresolvedNodes();
+  // Computed once per render here (not per TreeNode instance) and threaded down,
+  // so a large tree doesn't re-run findUnresolvedNodes once per row.
+  const unresolvedById = useMemo(
+    () => new Map(unresolved.map((u) => [u.id, u.missing])),
+    [unresolved],
+  );
 
   // Clicking the empty canvas background clears the current selection (HLD §13).
   function handleBackgroundClick() {
@@ -59,7 +67,7 @@ export function Canvas() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <TreeNode node={flow} />
+      <TreeNode node={flow} unresolvedById={unresolvedById} />
     </div>
   );
 }

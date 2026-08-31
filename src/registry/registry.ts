@@ -9,6 +9,7 @@
  */
 
 import type {
+  CategoryDef,
   CommandNodeDef,
   PropDef,
   StructuralNodeDef,
@@ -26,6 +27,12 @@ export interface Registry {
   getAllBlocks(): StructuralNodeDef[];
   /** All command definitions, in configuration order. */
   getAllFunctions(): CommandNodeDef[];
+  /**
+   * The palette taxonomy, in configuration order (categories.json). The order of
+   * this array *is* the palette's category order — configuration decides it, not
+   * the Palette component, so adding or reordering a category is a config change.
+   */
+  getCategories(): CategoryDef[];
 }
 
 /** Raw configuration inputs used to build a Registry. */
@@ -34,6 +41,12 @@ export interface RegistrySources {
   functions: CommandNodeDef[];
   /** Command property schemas keyed by command type (function-props.json). */
   commandProps: Record<string, PropDef[]>;
+  /**
+   * Palette taxonomy (categories.json). Optional: a source set without it still
+   * builds a valid registry, and nodes then fall back to an ungrouped listing —
+   * so pre-taxonomy configuration keeps working (§33).
+   */
+  categories?: CategoryDef[];
 }
 
 /**
@@ -70,7 +83,11 @@ function indexByType<T extends { type: string }>(
 
 function validateSources(sources: RegistrySources): void {
   for (const block of sources.blocks) {
-    if (!block.type || !block.codeTemplate) {
+    // A chain-composition node (Phase 2) builds its output entirely in
+    // engine/processFlow.ts's chain generator, not via codeTemplate substitution,
+    // so it is the one structural node exempt from requiring one.
+    const templateRequired = block.childComposition !== 'chain';
+    if (!block.type || (templateRequired && !block.codeTemplate)) {
       throw new RegistryLoadError(
         `Structural node is missing "type" or "codeTemplate".`,
         'building-blocks.json',
@@ -90,6 +107,22 @@ function validateSources(sources: RegistrySources): void {
         'functions.json',
       );
     }
+  }
+  const seenCategories = new Set<string>();
+  for (const category of sources.categories ?? []) {
+    if (!category.id || !category.label) {
+      throw new RegistryLoadError(
+        `Palette category is missing "id" or "label".`,
+        'categories.json',
+      );
+    }
+    if (seenCategories.has(category.id)) {
+      throw new RegistryLoadError(
+        `Duplicate palette category "${category.id}".`,
+        'categories.json',
+      );
+    }
+    seenCategories.add(category.id);
   }
 }
 
@@ -111,5 +144,6 @@ export function createRegistry(sources: RegistrySources): Registry {
     getProps: (type) => propMap[type] ?? [],
     getAllBlocks: () => sources.blocks,
     getAllFunctions: () => sources.functions,
+    getCategories: () => sources.categories ?? [],
   };
 }

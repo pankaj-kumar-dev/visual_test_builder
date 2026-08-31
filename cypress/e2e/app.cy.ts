@@ -1,5 +1,8 @@
 /**
  * Smoke — Application launch and registry load (SM-03).
+ *
+ * Updated for Phase 2 UI: the generated-code panel is no longer permanently
+ * visible — it lives behind the "</> Code" drawer toggle in the header.
  */
 
 describe('Application boot', () => {
@@ -8,12 +11,24 @@ describe('Application boot', () => {
   });
 
   context('SM-03 — app launches and registry loads', () => {
-    it('renders all four panels and no registry error', () => {
+    it('renders the three workspace panels, the code toggle, and no registry error', () => {
       cy.get('[data-testid=registry-error]').should('not.exist');
       cy.get('[data-testid=palette]').should('be.visible');
       cy.get('[data-testid=canvas]').should('be.visible');
       cy.get('[aria-label="Property editor"]').should('exist');
-      cy.get('[data-testid=output-code]').should('exist');
+      cy.get('[data-testid=code-toggle]').should('be.visible');
+    });
+
+    it('does not show the code drawer until the toggle is clicked', () => {
+      cy.get('[data-testid=code-drawer]').should('not.exist');
+      cy.get('[data-testid=code-toggle]').should('have.attr', 'aria-pressed', 'false');
+
+      cy.get('[data-testid=code-toggle]').click();
+      cy.get('[data-testid=code-drawer]').should('be.visible');
+      cy.get('[data-testid=code-toggle]').should('have.attr', 'aria-pressed', 'true');
+
+      cy.get('[data-testid=code-toggle]').click();
+      cy.get('[data-testid=code-drawer]').should('not.exist');
     });
 
     it('starts in the empty state', () => {

@@ -4,6 +4,16 @@
   --panel-muted: #f7f8fa;
   --text: #1a1a1a;
   --font: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+
+  /* Single warning color family (orange) shared by the code drawer's unresolved
+     list, canvas node highlighting, and property-field highlighting — Phase 2 UI:
+     one detection (findUnresolvedNodes), one visual language, three surfaces. */
+  --warning-border: #f0b4a0;
+  --warning-bg: #fff7ed;
+  --warning-bg-strong: #fdead9;
+  --warning-text: #9a3412;
+
+  --focus-ring: #2563eb;
 }
 
 * {
@@ -20,46 +30,160 @@ body,
 body {
   font-family: var(--font);
   color: var(--text);
+  /* Every scrollable region below declares its own overflow; the page itself
+     never needs to scroll, horizontally or vertically. */
+  overflow: hidden;
 }
 
-/* Four-region layout (HLD §7): left | canvas | right, with a full-width bottom. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* App shell: a header row, then the workspace (Phase 2 UI — replaces the old
+   header-less 2-row "left canvas right / bottom" grid). */
 .app {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+  min-height: 0;
+}
+
+/* Header / toolbar */
+.app-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+}
+
+.app-header__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #344054;
+}
+
+.app-header__code-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.app-header__code-toggle:hover {
+  border-color: #98a2b3;
+}
+
+.app-header__code-toggle.is-active {
+  border-color: var(--focus-ring);
+  background: #eff4ff;
+  color: var(--focus-ring);
+}
+
+/* Workspace: palette | canvas | properties, plus the code drawer as a 4th column
+   when open (desktop). Each panel manages its own scrolling. */
+.app__workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
   grid-template-columns: 240px 1fr 320px;
-  grid-template-rows: 1fr 220px;
-  grid-template-areas:
-    'left canvas right'
-    'bottom bottom bottom';
+}
+
+.app__workspace--drawer-open {
+  grid-template-columns: 240px 1fr 320px 480px;
 }
 
 .app__panel {
   overflow: auto;
+  min-width: 0;
+  min-height: 0;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
 }
 
 .app__left {
-  grid-area: left;
   background: var(--panel-muted);
-}
-
-.app__canvas {
-  grid-area: canvas;
 }
 
 .app__right {
-  grid-area: right;
   background: var(--panel-muted);
 }
 
-.app__bottom {
-  grid-area: bottom;
-}
-
-/* Palette (Left Panel) */
+/* Palette (Left Panel) — search + category/subgroup hierarchy */
 .palette {
   padding: 0.75rem;
+}
+
+.palette__search {
+  position: sticky;
+  top: -0.75rem;
+  z-index: 1;
+  margin: -0.75rem -0.75rem 0.85rem;
+  padding: 0.75rem;
+  background: var(--panel-muted);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+/* Visually hidden, still announced: the input keeps a real <label>. */
+.palette__search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.palette__search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.palette__search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.palette__search-clear {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  font-size: 1rem;
+  line-height: 1;
+  color: #475467;
+  cursor: pointer;
+}
+
+.palette__search-clear:hover {
+  background: #f2f4f7;
 }
 
 .palette__group + .palette__group {
@@ -73,6 +197,74 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #667085;
+}
+
+.palette__category-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.15rem 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.palette__category-toggle:hover {
+  color: var(--text);
+}
+
+.palette__chevron {
+  flex: none;
+  font-size: 0.6rem;
+  color: #98a2b3;
+}
+
+.palette__count {
+  margin-left: auto;
+  padding: 0 0.35rem;
+  border-radius: 8px;
+  background: #eaecf0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #667085;
+}
+
+.palette__subgroup {
+  margin-top: 0.5rem;
+  padding-left: 0.55rem;
+  border-left: 2px solid var(--panel-border);
+}
+
+.palette__subtitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+.palette__result + .palette__result {
+  margin-top: 0.5rem;
+}
+
+.palette__breadcrumb {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.66rem;
+  color: #98a2b3;
+}
+
+.palette__empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #98a2b3;
 }
 
 .palette__item {
@@ -124,10 +316,76 @@ body {
   gap: 0.5rem;
 }
 
+/* Collapse control — only rendered on rows that actually have children (§12);
+   leaves get the spacer instead so every row's label starts at the same x. */
+.tree-node__toggle,
+.tree-node__toggle-spacer {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.tree-node__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 0.6rem;
+  line-height: 1;
+  color: #667085;
+  cursor: pointer;
+}
+
+.tree-node__toggle:hover {
+  background: #eaecf0;
+  color: var(--text);
+}
+
+/* The configured value that distinguishes one row from another of the same type. */
+.tree-node__detail {
+  margin-left: 0.4rem;
+  color: #667085;
+}
+
+.tree-node__child-count {
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 8px;
+  background: #eaecf0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #667085;
+}
+
+.tree-node__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .tree-node__label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-node__warning-icon {
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+.tree-node__missing {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--warning-text);
 }
 
 .tree-node__delete {
@@ -152,6 +410,18 @@ body {
 .tree-node__row.is-selected {
   border-color: #2563eb;
   background: #eff4ff;
+}
+
+/* Unresolved-required-property state (Phase 2 UI) — same orange family as the
+   code drawer's warning box and the property field's warning state below. */
+.tree-node__row--unresolved {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.tree-node__row--unresolved.is-selected {
+  border-color: var(--warning-text);
+  background: var(--warning-bg-strong);
 }
 
 .tree-node__row.drop-valid {
@@ -200,6 +470,22 @@ body {
   font-size: 0.82rem;
 }
 
+/* Context-aware property editor: where the node sits, and which of its declared
+   fields this context does not apply (so an absent field is explained, not silent). */
+.property-editor__context {
+  margin: -0.6rem 0 0.9rem;
+  font-size: 0.72rem;
+  color: #667085;
+}
+
+.property-editor__hidden-note {
+  margin: 0.35rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--panel-border);
+  font-size: 0.72rem;
+  color: #98a2b3;
+}
+
 .property-field {
   display: block;
   margin-bottom: 0.85rem;
@@ -213,7 +499,7 @@ body {
 }
 
 .property-field__required {
-  color: #d92d20;
+  color: #9a3412;
 }
 
 .property-field__input {
@@ -225,38 +511,82 @@ body {
   background: var(--panel-bg);
 }
 
+.property-field__input:disabled {
+  background: var(--panel-muted);
+  color: #667085;
+  cursor: not-allowed;
+}
+
+/* Unresolved required field — same warning family as the canvas highlight and
+   the drawer's warning list (this is a validation state, not a fatal error). */
 .property-field__input.is-missing {
-  border-color: #f04438;
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
 }
 
 .property-field__error {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.72rem;
-  color: #d92d20;
+  color: var(--warning-text);
 }
 
-/* Output panel (Bottom Panel) */
-.output {
+/* Code drawer (Phase 2 UI — right-side, DevTools-style) */
+.code-drawer {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 0.75rem 1rem;
+  min-width: 320px;
+  max-width: 70vw;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  animation: code-drawer-slide-in 160ms ease-out;
 }
 
-.output__header {
+@media (prefers-reduced-motion: reduce) {
+  .code-drawer {
+    animation: none;
+  }
+}
+
+@keyframes code-drawer-slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.code-drawer__header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.output__title {
+.code-drawer__title {
   margin: 0;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.output__copy {
+.code-drawer__header-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.code-drawer__copy {
   padding: 0.35rem 0.75rem;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
@@ -265,28 +595,47 @@ body {
   cursor: pointer;
 }
 
-.output__copy:disabled {
+.code-drawer__copy:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.output__warning {
-  margin-bottom: 0.5rem;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid #f0b4a0;
-  background: #fff7ed;
+.code-drawer__close {
+  width: 1.85rem;
+  height: 1.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
-  font-size: 0.78rem;
-  color: #9a3412;
+  background: var(--panel-bg);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #475467;
+  cursor: pointer;
 }
 
-.output__warning ul {
-  margin: 0.3rem 0 0;
-  padding-left: 1.1rem;
+.code-drawer__close:hover {
+  background: #f2f4f7;
 }
 
-.output__code {
+/* Fixed header + one scrollable body (§4/§5 of the brief): the code region is
+   height-bounded and independently scrollable, so a very long generated test
+   never pushes the unresolved-properties section below it off-screen — the body
+   itself scrolls to reach it instead. */
+.code-drawer__body {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.code-drawer__code {
+  flex: 0 1 auto;
+  max-height: 60vh;
   margin: 0;
   padding: 0.7rem;
   overflow: auto;
@@ -296,8 +645,46 @@ body {
   color: #e6e8ef;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.8rem;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre;
+}
+
+.code-drawer__warning {
+  flex: none;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--warning-text);
+}
+
+.code-drawer__warning ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.code-drawer__warning-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: -0.15rem -0.3rem;
+  padding: 0.2rem 0.3rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.code-drawer__warning-item:hover {
+  background: var(--warning-bg-strong);
+  text-decoration: underline;
 }
 
 .startup-error {
@@ -313,4 +700,60 @@ body {
   background: #fde8e8;
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive breakpoints (Phase 2 UI)
+   Desktop  >= 1024px : palette | canvas | properties [| code drawer]
+   Tablet   768–1023px: narrower palette; opening the drawer hides properties
+                        instead of adding a 4th column, so the canvas stays usable
+   Mobile   < 768px   : palette/canvas/properties stack vertically; the code
+                        drawer becomes a full-screen overlay
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 1023px) {
+  .app__workspace {
+    grid-template-columns: 200px 1fr 280px;
+  }
+
+  .app__workspace--drawer-open {
+    grid-template-columns: 200px 1fr 420px;
+  }
+
+  .app__workspace--drawer-open .app__right {
+    display: none;
+  }
+
+  .code-drawer {
+    max-width: 80vw;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-header__title {
+    display: none;
+  }
+
+  .app__workspace {
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(200px, 1fr);
+    overflow-y: auto;
+  }
+
+  .app__workspace--drawer-open .app__left,
+  .app__workspace--drawer-open .app__canvas,
+  .app__workspace--drawer-open .app__right {
+    display: none;
+  }
+
+  .code-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    width: 100vw;
+    min-width: 0;
+    max-width: 100vw;
+    height: 100vh;
+    border-left: none;
+  }
 }
