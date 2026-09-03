@@ -14,6 +14,7 @@ import type {
   PropDef,
   StructuralNodeDef,
 } from '../domain/types';
+import { deriveStandaloneTemplate } from '../engine/chain';
 
 /** Registry lookup interface (HLD §9, "Registry Interface"). */
 export interface Registry {
@@ -33,6 +34,15 @@ export interface Registry {
    * the Palette component, so adding or reordering a category is a config change.
    */
   getCategories(): CategoryDef[];
+  /**
+   * Whether a node of `childType` may sit inside `parent.allowedChildren` (Phase 1,
+   * "configuration scaling"). An entry is either a literal type (`"chain"`) or a
+   * `@group` wildcard (`"@action"`) matching any definition — structural or
+   * command — whose `group` equals it. A parent may mix both forms freely. This
+   * is the one place that interprets `allowedChildren` membership; UI drop rules
+   * and the chain engine both call it instead of re-reading the raw array.
+   */
+  allowsChildType(parent: StructuralNodeDef, childType: string): boolean;
 }
 
 /** Raw configuration inputs used to build a Registry. */
@@ -81,12 +91,28 @@ function indexByType<T extends { type: string }>(
   return map;
 }
 
+/**
+ * Whether a definition's codeTemplate is derivable from its chainTemplate
+ * (Phase 1, "template duplication"): a `chainRole: 'subject'` node with a
+ * `chainTemplate`. True for a subject-role command *and* a subject-role Phase 2
+ * block node (`within`, `then`, `each`) alike — both use the same self-anchoring
+ * `cy.get('{{selector}}')` + chainTemplate rule.
+ */
+function isChainDerivable(def: { chainRole?: 'root' | 'subject'; chainTemplate?: string }): boolean {
+  return def.chainRole === 'subject' && !!def.chainTemplate;
+}
+
 function validateSources(sources: RegistrySources): void {
   for (const block of sources.blocks) {
     // A chain-composition node (Phase 2) builds its output entirely in
     // engine/processFlow.ts's chain generator, not via codeTemplate substitution,
-    // so it is the one structural node exempt from requiring one.
-    const templateRequired = block.childComposition !== 'chain';
+    // so it is the one structural node exempt from requiring one outright. A
+    // block node (Phase 2) is exempt too when derivable, same rule as commands.
+    // A reuse-composition node (Phase 5) is exempt the same way `chain` is: its
+    // output is a generation-time expansion (engine/reusableFlows.ts), not
+    // template substitution.
+    const templateRequired =
+      block.childComposition !== 'chain' && block.childComposition !== 'reuse' && !isChainDerivable(block);
     if (!block.type || (templateRequired && !block.codeTemplate)) {
       throw new RegistryLoadError(
         `Structural node is missing "type" or "codeTemplate".`,
@@ -99,9 +125,16 @@ function validateSources(sources: RegistrySources): void {
         'building-blocks.json',
       );
     }
+    if (block.slots !== undefined && (!Array.isArray(block.slots) || block.slots.length === 0)) {
+      throw new RegistryLoadError(
+        `Structural node "${block.type}" has an invalid "slots" array.`,
+        'building-blocks.json',
+      );
+    }
   }
   for (const fn of sources.functions) {
-    if (!fn.type || !fn.codeTemplate) {
+    // codeTemplate may be omitted only when it is derivable (see isChainDerivable).
+    if (!fn.type || (!fn.codeTemplate && !isChainDerivable(fn))) {
       throw new RegistryLoadError(
         `Command node is missing "type" or "codeTemplate".`,
         'functions.json',
@@ -134,16 +167,46 @@ function validateSources(sources: RegistrySources): void {
 export function createRegistry(sources: RegistrySources): Registry {
   validateSources(sources);
 
-  const blockMap = indexByType(sources.blocks, 'building-blocks.json');
-  const functionMap = indexByType(sources.functions, 'functions.json');
+  // Fill in any omitted codeTemplate (Phase 1/2, "template duplication") before
+  // indexing, so every downstream consumer (generator, tests, UI) sees a
+  // complete definition and never has to know the field was derived. Checked
+  // against `undefined` specifically (not truthiness) so a node that legitimately
+  // declares `codeTemplate: ""` — the `chain` composition node — is left alone
+  // rather than mistaken for "omitted" and fed to a deriver it has no chainTemplate for.
+  const blocks = sources.blocks.map((block) =>
+    block.codeTemplate !== undefined
+      ? block
+      : { ...block, codeTemplate: deriveStandaloneTemplate(block.chainTemplate!) },
+  );
+  const functions = sources.functions.map((fn) =>
+    fn.codeTemplate !== undefined
+      ? fn
+      : { ...fn, codeTemplate: deriveStandaloneTemplate(fn.chainTemplate!) },
+  );
+
+  const blockMap = indexByType(blocks, 'building-blocks.json');
+  const functionMap = indexByType(functions, 'functions.json');
   const propMap = sources.commandProps;
+
+  /** `group` of a type, wherever it's defined (structural block or command). */
+  function groupOf(type: string): string | undefined {
+    return blockMap.get(type)?.group ?? functionMap.get(type)?.group;
+  }
+
+  function allowsChildType(parent: StructuralNodeDef, childType: string): boolean {
+    const childGroup = groupOf(childType);
+    return parent.allowedChildren.some((entry) =>
+      entry.startsWith('@') ? entry.slice(1) === childGroup : entry === childType,
+    );
+  }
 
   return {
     getBlock: (type) => blockMap.get(type) ?? null,
     getFunction: (type) => functionMap.get(type) ?? null,
     getProps: (type) => propMap[type] ?? [],
-    getAllBlocks: () => sources.blocks,
-    getAllFunctions: () => sources.functions,
+    getAllBlocks: () => blocks,
+    getAllFunctions: () => functions,
     getCategories: () => sources.categories ?? [],
+    allowsChildType,
   };
 }

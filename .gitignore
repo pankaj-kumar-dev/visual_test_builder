@@ -5,12 +5,13 @@ node_modules/
 dist/
 /docs
 /HLD_Visual_Test_Builder.md
-docs/
+.docs/
 
 
 # Cypress artifacts
 cypress/screenshots/
 cypress/videos/
+cypress/downloads/
 
 # Logs
 *.log

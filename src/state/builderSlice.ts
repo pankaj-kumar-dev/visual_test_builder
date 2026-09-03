@@ -12,7 +12,10 @@
 
 import { createSlice, current, type PayloadAction } from '@reduxjs/toolkit';
 import type { AppState, FlowNode } from '../domain/types';
+import { getDefaultReusableFlows } from '../config/reusableFlowsConfig';
 import { processFlow } from '../engine/processFlow';
+import { createSlotChildren } from '../engine/slots';
+import { getRegistry } from '../registry';
 import {
   collectSubtreeIds,
   findAncestorIds,
@@ -29,6 +32,8 @@ const initialState: AppState = {
   generatedCode: '',
   isCodeDrawerOpen: false,
   collapsedNodeIds: {},
+  reusableFlows: getDefaultReusableFlows(),
+  history: { past: [], future: [] },
 };
 
 /** Plain snapshot of the current flow, or null. */
@@ -36,10 +41,39 @@ function currentFlow(state: AppState): FlowNode | null {
   return state.flow ? current(state.flow) : null;
 }
 
-/** Set the flow and re-derive generatedCode. The only place flow/code change. */
-function applyFlow(state: AppState, flow: FlowNode | null): void {
+/**
+ * Set the flow and re-derive generatedCode — the only place flow/code change,
+ * and (Phase 5) the one choke point undo/redo hangs off. A mutation that
+ * produces the exact same flow reference (a pure `state/flowTree.ts` helper's
+ * own no-op detection, e.g. reordering to the same index, or deleting an id
+ * that isn't there) is skipped entirely — nothing changed, so nothing is
+ * recomputed and no history entry is recorded.
+ *
+ * `recordHistory` is false only for undo/redo themselves (builderSlice.ts's
+ * `undo`/`redo` reducers): they must move the flow between `past`/`future`
+ * without *also* pushing a new entry, or an undo would immediately create
+ * something to "redo past" other than what the user actually undid.
+ */
+function applyFlow(
+  state: AppState,
+  flow: FlowNode | null,
+  options: { recordHistory?: boolean } = {},
+): void {
+  const { recordHistory = true } = options;
+  // Compare against a plain snapshot, not the live Immer draft proxy at
+  // `state.flow` — the two are never reference-equal even when nothing
+  // changed (a proxy is never `===` the plain object it wraps), which would
+  // silently defeat this no-op check every time. `before` and the `flow`
+  // callers pass in both ultimately derive from the same `currentFlow(state)`
+  // call, so an unchanged tree really does arrive here as the same reference.
+  const before = currentFlow(state);
+  if (flow === before) return;
+  if (recordHistory) {
+    state.history.past.push(before);
+    state.history.future = [];
+  }
   state.flow = flow;
-  state.generatedCode = processFlow(flow);
+  state.generatedCode = processFlow(flow, getRegistry(), current(state.reusableFlows));
 }
 
 /**
@@ -85,6 +119,13 @@ const builderSlice = createSlice({
     addNode: {
       reducer(state, { payload }: PayloadAction<AddNodePayload>) {
         const node: FlowNode = { id: payload.id, type: payload.type, props: {} };
+        // Phase 5: a multi-slot host (`StructuralNodeDef.slots`, e.g. `if`'s
+        // ["then", "else"]) gets one empty `slot` wrapper per declared name up
+        // front — driven entirely by that metadata, never by `payload.type`,
+        // so any future multi-slot construct is seeded the same way with no
+        // new code here (engine/slots.ts).
+        const slots = getRegistry().getBlock(payload.type)?.slots;
+        if (slots) node.children = createSlotChildren(slots, generateId);
         const flow = insertNode(currentFlow(state), payload.parentId, node, payload.index);
         applyFlow(state, flow);
         // Dropping into a collapsed parent expands it, so the new child is visible
@@ -121,6 +162,20 @@ const builderSlice = createSlice({
       ) {
         state.selectedNodeId = null;
       }
+    },
+
+    // LOAD_FLOW — replace the entire flow (Phase 1 import/localStorage restore).
+    // Selection and collapse state are per-node UI state keyed to the previous
+    // tree's ids, which have no guaranteed meaning in the incoming tree, so both
+    // are reset rather than carried over. Undo history is reset too (Phase 5):
+    // undoing an import back to whatever the canvas held a moment ago is not a
+    // meaningful operation, so a fresh load starts a fresh history instead of
+    // recording the discarded flow as one more undo step.
+    loadFlow(state, { payload }: PayloadAction<FlowNode | null>) {
+      applyFlow(state, payload, { recordHistory: false });
+      state.selectedNodeId = null;
+      state.collapsedNodeIds = {};
+      state.history = { past: [], future: [] };
     },
 
     // SELECT_NODE — set (or clear) the selected node (HLD §13). Does not touch flow.
@@ -165,6 +220,35 @@ const builderSlice = createSlice({
         delete state.collapsedNodeIds[ancestorId];
       }
     },
+
+    // UNDO — restore the most recent `past` snapshot, pushing the current flow
+    // onto `future` (Phase 5). A no-op (not an error) when there is nothing to
+    // undo. Goes through `applyFlow` with `recordHistory: false` so undoing
+    // never itself creates a new undo step. Selection is cleared if it no
+    // longer resolves in the restored tree, the same rule `deleteNode` already
+    // applies for the same reason (a stale id pointing at nothing).
+    undo(state) {
+      const previous = state.history.past.pop();
+      if (previous === undefined) return;
+      state.history.future.push(currentFlow(state));
+      applyFlow(state, previous, { recordHistory: false });
+      if (state.selectedNodeId && (previous === null || findNode(previous, state.selectedNodeId) === null)) {
+        state.selectedNodeId = null;
+      }
+    },
+
+    // REDO — the mirror image of `undo`: restore the most recent `future`
+    // snapshot, pushing the current flow back onto `past`. A no-op when there
+    // is nothing to redo.
+    redo(state) {
+      const next = state.history.future.pop();
+      if (next === undefined) return;
+      state.history.past.push(currentFlow(state));
+      applyFlow(state, next, { recordHistory: false });
+      if (state.selectedNodeId && (next === null || findNode(next, state.selectedNodeId) === null)) {
+        state.selectedNodeId = null;
+      }
+    },
   },
 });
 
@@ -172,11 +256,14 @@ export const {
   addNode,
   updateProp,
   deleteNode,
+  loadFlow,
   selectNode,
   reorderNode,
   setCodeDrawerOpen,
   toggleNodeCollapse,
   revealNode,
+  undo,
+  redo,
 } = builderSlice.actions;
 
 export default builderSlice.reducer;

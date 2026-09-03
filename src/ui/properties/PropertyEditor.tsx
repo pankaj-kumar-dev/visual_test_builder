@@ -15,7 +15,10 @@
 
 import { useMemo } from 'react';
 import { useAppDispatch, useAppSelector, useUnresolvedNodes } from '../../app/hooks';
+import type { PropDef } from '../../domain/types';
 import { deriveNodeContext, hiddenProps, resolveSchema } from '../../engine/nodeContext';
+import { referencesInScope } from '../../engine/references';
+import { resolveInvocationSchema } from '../../engine/reusableFlows';
 import { getRegistry } from '../../registry';
 import { updateProp } from '../../state/builderSlice';
 import { findNode } from '../../state/flowTree';
@@ -25,6 +28,7 @@ export function PropertyEditor() {
   const dispatch = useAppDispatch();
   const flow = useAppSelector((state) => state.flow);
   const selectedNodeId = useAppSelector((state) => state.selectedNodeId);
+  const reusableFlows = useAppSelector((state) => state.reusableFlows);
   const node = flow && selectedNodeId ? findNode(flow, selectedNodeId) : null;
   const unresolved = useUnresolvedNodes();
 
@@ -33,6 +37,14 @@ export function PropertyEditor() {
   // in sync (§19). Recomputed only when the flow or the selection changes.
   const context = useMemo(
     () => deriveNodeContext(flow, selectedNodeId ?? '', registry),
+    [flow, selectedNodeId, registry],
+  );
+  // Phase 3: names available to the "insert reference" picker on any
+  // `acceptsReference` field — derived the same way engine/references.ts's
+  // semantic validator resolves a consumption, so the picker can never offer a
+  // name the validator would then reject.
+  const availableReferences = useMemo(
+    () => Array.from(referencesInScope(flow, selectedNodeId ?? '', registry)).sort(),
     [flow, selectedNodeId, registry],
   );
 
@@ -46,8 +58,16 @@ export function PropertyEditor() {
 
   const def = registry.getBlock(node.type) ?? registry.getFunction(node.type);
   const title = def?.label ?? node.type;
-  const schema = resolveSchema(node.type, context, registry);
-  const hidden = hiddenProps(node.type, context, registry);
+  // Phase 5: a reusable-flow invocation has no *static* schema in the registry
+  // (only a fixed `flowId` picker) — its argument fields are derived per
+  // instance from whichever definition is selected (engine/reusableFlows.ts),
+  // reusing the exact same PropDef shape and `<PropertyField>` rendering below,
+  // so this stays "one static registry entry", never a component per flow.
+  const isReuseInvocation = !!def && 'childComposition' in def && def.childComposition === 'reuse';
+  const schema: { def: PropDef; disabled: boolean }[] = isReuseInvocation
+    ? resolveInvocationSchema(node, reusableFlows).map((propDef) => ({ def: propDef, disabled: false }))
+    : resolveSchema(node.type, context, registry);
+  const hidden = isReuseInvocation ? [] : hiddenProps(node.type, context, registry);
   const containerLabel = context.parentType
     ? (registry.getBlock(context.parentType)?.label ?? context.parentType)
     : null;
@@ -76,6 +96,7 @@ export function PropertyEditor() {
             value={node.props?.[propDef.key] ?? ''}
             isMissing={missingKeys.has(propDef.key)}
             disabled={disabled}
+            availableReferences={availableReferences}
             onChange={(value) =>
               dispatch(updateProp({ nodeId: node.id, key: propDef.key, value }))
             }

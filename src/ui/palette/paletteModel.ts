@@ -85,8 +85,8 @@ function toPaletteNode(def: StructuralNodeDef | CommandNodeDef): PaletteNode {
  */
 export function collectPaletteNodes(registry: Registry): PaletteNode[] {
   return [
-    ...registry.getAllBlocks().map(toPaletteNode),
-    ...registry.getAllFunctions().map(toPaletteNode),
+    ...registry.getAllBlocks().filter((def) => !def.hidden).map(toPaletteNode),
+    ...registry.getAllFunctions().filter((def) => !def.hidden).map(toPaletteNode),
   ];
 }
 

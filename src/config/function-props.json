@@ -4,11 +4,11 @@
   ],
 
   "get": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true }
+    { "key": "selector", "label": "Selector", "type": "text", "required": true, "acceptsReference": true }
   ],
   "contains": [
     { "key": "text", "label": "Text", "type": "text", "required": true },
-    { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false }
+    { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false, "acceptsReference": true }
   ],
   "find": [
     {
@@ -16,7 +16,8 @@
       "label": "Container Selector",
       "type": "text",
       "required": true,
-      "visibleWhen": { "hasSubject": false }
+      "visibleWhen": { "hasSubject": false },
+      "acceptsReference": true
     },
     { "key": "target", "label": "Descendant Selector", "type": "text", "required": true }
   ],
@@ -46,7 +47,88 @@
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
-    { "key": "index", "label": "Index", "type": "text", "required": true }
+    { "key": "index", "label": "Index", "type": "number", "required": true }
+  ],
+
+  "children": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "parent": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "parents": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "siblings": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "next": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "prev": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector (optional)", "type": "text", "required": false }
+  ],
+  "closest": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Ancestor Selector", "type": "text", "required": true }
+  ],
+  "filter": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "match", "label": "Filter Selector", "type": "text", "required": true }
   ],
 
   "click": [
@@ -141,6 +223,34 @@
       "visibleWhen": { "hasSubject": false }
     }
   ],
+  "rightclick": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
+  "trigger": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "eventName", "label": "Event Name", "type": "text", "required": true }
+  ],
+  "submit": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    }
+  ],
 
   "should": [
     {
@@ -166,6 +276,8 @@
         "be.disabled",
         "be.checked",
         "not.be.checked",
+        "eq",
+        "not.eq",
         "have.text",
         "contain.text",
         "have.attr",
@@ -174,6 +286,180 @@
       ]
     },
     { "key": "value", "label": "Value", "type": "text", "required": false },
-    { "key": "count", "label": "Count (numeric, for have.length)", "type": "text", "required": false }
+    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false }
+  ],
+  "and": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    {
+      "key": "assertion",
+      "label": "Assertion",
+      "type": "dropdown",
+      "required": true,
+      "options": [
+        "be.visible",
+        "not.exist",
+        "contain",
+        "have.value",
+        "exist",
+        "be.hidden",
+        "be.enabled",
+        "be.disabled",
+        "be.checked",
+        "not.be.checked",
+        "eq",
+        "not.eq",
+        "have.text",
+        "contain.text",
+        "have.attr",
+        "have.class",
+        "have.length"
+      ]
+    },
+    { "key": "value", "label": "Value", "type": "text", "required": false },
+    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false }
+  ],
+
+  "reload": [],
+  "go": [
+    {
+      "key": "direction",
+      "label": "Direction",
+      "type": "dropdown",
+      "required": true,
+      "options": ["back", "forward"]
+    }
+  ],
+  "viewport": [
+    { "key": "width", "label": "Width", "type": "number", "required": true },
+    { "key": "height", "label": "Height", "type": "number", "required": true }
+  ],
+  "title": [],
+  "url": [],
+
+  "log": [
+    { "key": "message", "label": "Message", "type": "text", "required": true }
+  ],
+  "wait": [
+    { "key": "ms", "label": "Milliseconds", "type": "number", "required": true }
+  ],
+  "screenshot": [
+    { "key": "name", "label": "Name (optional)", "type": "text", "required": false }
+  ],
+  "pause": [],
+  "clearCookies": [],
+  "clearLocalStorage": [],
+
+  "its": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "propertyPath", "label": "Property Path", "type": "text", "required": true }
+  ],
+  "invoke": [
+    {
+      "key": "selector",
+      "label": "Selector",
+      "type": "text",
+      "required": true,
+      "visibleWhen": { "hasSubject": false }
+    },
+    { "key": "methodName", "label": "Method Name", "type": "text", "required": true }
+  ],
+  "wrap": [
+    {
+      "key": "expression",
+      "label": "Expression (e.g. $row, or Cypress.env('user'))",
+      "type": "expression",
+      "required": true
+    }
+  ],
+
+  "as": [
+    { "key": "name", "label": "Alias Name", "type": "reference-name", "required": true }
+  ],
+  "fixture": [
+    { "key": "path", "label": "Fixture Path", "type": "text", "required": true }
+  ],
+  "env": [
+    { "key": "key", "label": "Variable Name", "type": "text", "required": true }
+  ],
+  "task": [
+    { "key": "event", "label": "Task Name", "type": "text", "required": true },
+    { "key": "arg", "label": "Argument (optional, raw JS)", "type": "expression", "required": false }
+  ],
+  "readFile": [
+    { "key": "path", "label": "File Path", "type": "text", "required": true }
+  ],
+  "writeFile": [
+    { "key": "path", "label": "File Path", "type": "text", "required": true },
+    { "key": "contents", "label": "Contents", "type": "text", "required": true }
+  ],
+  "getCookie": [
+    { "key": "name", "label": "Cookie Name", "type": "text", "required": true }
+  ],
+  "setCookie": [
+    { "key": "name", "label": "Cookie Name", "type": "text", "required": true },
+    { "key": "value", "label": "Value", "type": "text", "required": true }
+  ],
+
+  "intercept": [
+    {
+      "key": "method",
+      "label": "Method (optional, any if blank)",
+      "type": "dropdown",
+      "required": false,
+      "options": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    },
+    { "key": "url", "label": "URL / Route Matcher", "type": "text", "required": true },
+    {
+      "key": "stubResponse",
+      "label": "Stub Response (optional, raw JS, e.g. { statusCode: 200, body: {} })",
+      "type": "expression",
+      "required": false
+    }
+  ],
+  "waitAlias": [
+    {
+      "key": "alias",
+      "label": "Alias (e.g. @getBrands)",
+      "type": "text",
+      "required": true,
+      "acceptsReference": true
+    }
+  ],
+  "request": [
+    {
+      "key": "method",
+      "label": "Method (optional, GET if blank)",
+      "type": "dropdown",
+      "required": false,
+      "options": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    },
+    { "key": "url", "label": "URL", "type": "text", "required": true },
+    {
+      "key": "body",
+      "label": "Body (optional, raw JS object)",
+      "type": "expression",
+      "required": false
+    }
+  ],
+  "customCommand": [
+    { "key": "commandName", "label": "Command Name", "type": "binding", "required": true },
+    {
+      "key": "args",
+      "label": "Arguments (optional, raw JS)",
+      "type": "expression",
+      "required": false
+    }
   ]
 }

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "login",
+    "name": "Login",
+    "description": "Visit the login page and sign in with a username/password.",
+    "params": [
+      { "key": "username", "label": "Username", "type": "text", "required": true },
+      { "key": "password", "label": "Password", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "login-visit", "type": "visit", "props": { "url": "/login" } },
+      { "id": "login-type-username", "type": "type", "props": { "selector": "#username", "value": "{{username}}" } },
+      { "id": "login-type-password", "type": "type", "props": { "selector": "#password", "value": "{{password}}" } },
+      { "id": "login-click-submit", "type": "click", "props": { "selector": "#login-submit" } }
+    ]
+  },
+  {
+    "id": "search",
+    "name": "Search",
+    "description": "Type a query into the search box, submit it, and wait for results.",
+    "params": [
+      { "key": "query", "label": "Query", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "search-type-query", "type": "type", "props": { "selector": "#search-input", "value": "{{query}}" } },
+      { "id": "search-click-button", "type": "click", "props": { "selector": "#search-button" } },
+      { "id": "search-assert-results", "type": "should", "props": { "selector": "#search-results", "assertion": "be.visible" } }
+    ]
+  }
+]

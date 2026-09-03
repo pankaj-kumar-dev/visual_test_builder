@@ -5,9 +5,14 @@
  * subject-passing (`cy.get(x).find(y).click()`) instead of the ordinary
  * independent-statement composition every other structural node uses. This module
  * is the single place that knows the rule for what may start or continue a chain —
- * driven entirely by each command's `chainRole` registry metadata, never by
+ * driven entirely by each node's `chainRole` registry metadata, never by
  * branching on a command's `type` name. Both the UI (drop validation) and the
  * engine (code generation) import from here so the rule is defined exactly once.
+ *
+ * `chainRole` is not exclusive to leaf commands: a Phase 2 block node (`within`,
+ * `then`, `each`) can be a `'subject'` continuation too, its chain fragment
+ * expanding into a multi-line `.method(() => { ... })` instead of a bare
+ * `.method(...)` suffix — see engine/processFlow.ts's `renderBody`.
  */
 
 import type { FlowNode } from '../domain/types';
@@ -15,9 +20,30 @@ import type { Registry } from '../registry';
 
 export type ChainRole = 'root' | 'subject';
 
-/** A command's chain role, or null if it has none (cannot appear in a chain at all). */
+/**
+ * Derive a `chainRole: 'subject'` command's standalone `codeTemplate` from its
+ * `chainTemplate` (Phase 1, "template duplication"). Every existing subject
+ * command's standalone form is exactly `cy.get('{{selector}}')` followed by its
+ * chain suffix and a semicolon — the self-anchoring rule (Phase 1) applied
+ * generically — so the two templates never need to be authored separately.
+ * `registry/registry.ts` calls this once per definition at load time to fill in
+ * an omitted `codeTemplate`; a command whose standalone form must differ still
+ * provides its own explicit `codeTemplate` and this function is never called for it.
+ */
+export function deriveStandaloneTemplate(chainTemplate: string): string {
+  return `cy.get('{{selector}}')${chainTemplate};`;
+}
+
+/**
+ * A node's chain role, or null if it has none (cannot appear in a chain at
+ * all). Checks command definitions (functions.json) first, then structural
+ * ones (building-blocks.json) — a Phase 2 block node (`within`, `then`, `each`)
+ * is structural (it owns `allowedChildren`/`childComposition`) but can still
+ * carry a `chainRole`, so both sources must be consulted the same way
+ * `engine/processFlow.ts`'s definition lookup already does.
+ */
 export function getChainRole(type: string, reg: Registry): ChainRole | null {
-  return reg.getFunction(type)?.chainRole ?? null;
+  return reg.getFunction(type)?.chainRole ?? reg.getBlock(type)?.chainRole ?? null;
 }
 
 /**

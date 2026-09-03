@@ -82,6 +82,95 @@
   },
 
   {
+    "type": "children",
+    "label": "Children",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the children of the current subject.",
+    "keywords": ["descendant", "dom", "nested"],
+    "chainRole": "subject",
+    "chainTemplate": ".children([[match:'{{match}}']])"
+  },
+  {
+    "type": "parent",
+    "label": "Parent",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the parent of the current subject.",
+    "keywords": ["ancestor", "dom"],
+    "chainRole": "subject",
+    "chainTemplate": ".parent([[match:'{{match}}']])"
+  },
+  {
+    "type": "parents",
+    "label": "Parents",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the ancestors of the current subject.",
+    "keywords": ["ancestor", "dom"],
+    "chainRole": "subject",
+    "chainTemplate": ".parents([[match:'{{match}}']])"
+  },
+  {
+    "type": "siblings",
+    "label": "Siblings",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the siblings of the current subject.",
+    "keywords": ["dom", "adjacent"],
+    "chainRole": "subject",
+    "chainTemplate": ".siblings([[match:'{{match}}']])"
+  },
+  {
+    "type": "next",
+    "label": "Next",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the immediately following sibling of the current subject.",
+    "keywords": ["dom", "adjacent", "sibling"],
+    "chainRole": "subject",
+    "chainTemplate": ".next([[match:'{{match}}']])"
+  },
+  {
+    "type": "prev",
+    "label": "Prev",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the immediately preceding sibling of the current subject.",
+    "keywords": ["dom", "adjacent", "sibling"],
+    "chainRole": "subject",
+    "chainTemplate": ".prev([[match:'{{match}}']])"
+  },
+  {
+    "type": "closest",
+    "label": "Closest",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Get the closest ancestor matching a selector.",
+    "keywords": ["ancestor", "dom", "match"],
+    "chainRole": "subject",
+    "chainTemplate": ".closest('{{match}}')"
+  },
+  {
+    "type": "filter",
+    "label": "Filter",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "relative",
+    "description": "Narrow the current subject to elements matching a selector.",
+    "keywords": ["dom", "match", "narrow"],
+    "chainRole": "subject",
+    "chainTemplate": ".filter('{{match}}')"
+  },
+
+  {
     "type": "click",
     "label": "Click",
     "category": "command",
@@ -201,6 +290,39 @@
     "chainTemplate": ".scrollIntoView()",
     "codeTemplate": "cy.get('{{selector}}').scrollIntoView();"
   },
+  {
+    "type": "rightclick",
+    "label": "Right Click",
+    "category": "command",
+    "group": "action",
+    "subgroup": "mouse",
+    "description": "Right-click the current subject.",
+    "keywords": ["mouse", "context menu", "secondary"],
+    "chainRole": "subject",
+    "chainTemplate": ".rightclick()"
+  },
+  {
+    "type": "trigger",
+    "label": "Trigger",
+    "category": "command",
+    "group": "action",
+    "subgroup": "event",
+    "description": "Trigger a DOM event on the current subject.",
+    "keywords": ["event", "dispatch", "dom"],
+    "chainRole": "subject",
+    "chainTemplate": ".trigger('{{eventName}}')"
+  },
+  {
+    "type": "submit",
+    "label": "Submit",
+    "category": "command",
+    "group": "action",
+    "subgroup": "input",
+    "description": "Submit a form.",
+    "keywords": ["form", "send"],
+    "chainRole": "subject",
+    "chainTemplate": ".submit()"
+  },
 
   {
     "type": "should",
@@ -212,5 +334,280 @@
     "chainRole": "subject",
     "chainTemplate": ".should('{{assertion}}'[[value:, '{{value}}']][[count:, {{count}}]])",
     "codeTemplate": "cy.get('{{selector}}').should('{{assertion}}'[[value:, '{{value}}']][[count:, {{count}}]]);"
+  },
+  {
+    "type": "and",
+    "label": "And",
+    "category": "command",
+    "group": "assertion",
+    "description": "Chain another assertion onto the current subject.",
+    "keywords": ["and", "also", "chain", "assertion"],
+    "chainRole": "subject",
+    "chainTemplate": ".and('{{assertion}}'[[value:, '{{value}}']][[count:, {{count}}]])"
+  },
+
+  {
+    "type": "reload",
+    "label": "Reload",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Reload the page.",
+    "keywords": ["refresh", "navigate"],
+    "codeTemplate": "cy.reload();"
+  },
+  {
+    "type": "go",
+    "label": "Go",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Navigate back or forward in browser history.",
+    "keywords": ["history", "back", "forward", "navigate"],
+    "codeTemplate": "cy.go('{{direction}}');"
+  },
+  {
+    "type": "viewport",
+    "label": "Viewport",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Set the browser viewport size.",
+    "keywords": ["responsive", "resize", "screen", "size"],
+    "codeTemplate": "cy.viewport({{width}}, {{height}});"
+  },
+  {
+    "type": "title",
+    "label": "Title",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Get the document title.",
+    "keywords": ["document", "page title"],
+    "chainRole": "root",
+    "codeTemplate": "cy.title();"
+  },
+  {
+    "type": "url",
+    "label": "URL",
+    "category": "command",
+    "group": "browser",
+    "subgroup": "navigation",
+    "description": "Get the current URL.",
+    "keywords": ["address", "location", "href"],
+    "chainRole": "root",
+    "codeTemplate": "cy.url();"
+  },
+
+  {
+    "type": "log",
+    "label": "Log",
+    "category": "command",
+    "group": "utility",
+    "description": "Print a message to the Cypress command log.",
+    "keywords": ["debug", "print", "message"],
+    "codeTemplate": "cy.log('{{message}}');"
+  },
+  {
+    "type": "wait",
+    "label": "Wait",
+    "category": "command",
+    "group": "utility",
+    "description": "Wait for a fixed number of milliseconds.",
+    "keywords": ["delay", "pause", "sleep", "timeout"],
+    "codeTemplate": "cy.wait({{ms}});"
+  },
+  {
+    "type": "screenshot",
+    "label": "Screenshot",
+    "category": "command",
+    "group": "utility",
+    "description": "Take a screenshot.",
+    "keywords": ["capture", "image", "snapshot"],
+    "codeTemplate": "cy.screenshot([[name:'{{name}}']]);"
+  },
+  {
+    "type": "pause",
+    "label": "Pause",
+    "category": "command",
+    "group": "utility",
+    "description": "Pause test execution for interactive debugging.",
+    "keywords": ["debug", "breakpoint", "stop"],
+    "codeTemplate": "cy.pause();"
+  },
+  {
+    "type": "clearCookies",
+    "label": "Clear Cookies",
+    "category": "command",
+    "group": "utility",
+    "description": "Clear all browser cookies.",
+    "keywords": ["cookies", "reset", "session"],
+    "codeTemplate": "cy.clearCookies();"
+  },
+  {
+    "type": "clearLocalStorage",
+    "label": "Clear Local Storage",
+    "category": "command",
+    "group": "utility",
+    "description": "Clear browser local storage.",
+    "keywords": ["storage", "reset", "session"],
+    "codeTemplate": "cy.clearLocalStorage();"
+  },
+
+  {
+    "type": "its",
+    "label": "Its",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "introspect",
+    "description": "Get a property's value from the current subject.",
+    "keywords": ["property", "value", "length", "dot", "field"],
+    "chainRole": "subject",
+    "chainTemplate": ".its('{{propertyPath}}')"
+  },
+  {
+    "type": "invoke",
+    "label": "Invoke",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "introspect",
+    "description": "Invoke a method on the current subject.",
+    "keywords": ["method", "call", "function"],
+    "chainRole": "subject",
+    "chainTemplate": ".invoke('{{methodName}}')"
+  },
+  {
+    "type": "wrap",
+    "label": "Wrap",
+    "category": "command",
+    "group": "traversal",
+    "subgroup": "element",
+    "description": "Wrap an existing value or expression as the new Cypress subject (e.g. a callback-bound variable like $row).",
+    "keywords": ["yield", "expression", "existing", "subject", "variable"],
+    "chainRole": "root",
+    "codeTemplate": "cy.wrap({{expression}});"
+  },
+
+  {
+    "type": "as",
+    "label": "As (save alias)",
+    "category": "command",
+    "group": "data",
+    "description": "Save the current subject as a named alias for later reference.",
+    "keywords": ["alias", "reference", "save", "name"],
+    "chainRole": "subject",
+    "chainTemplate": ".as('{{name}}')"
+  },
+  {
+    "type": "fixture",
+    "label": "Fixture",
+    "category": "command",
+    "group": "data",
+    "description": "Load a fixture file as the new subject.",
+    "keywords": ["fixture", "data", "load", "json"],
+    "chainRole": "root",
+    "codeTemplate": "cy.fixture('{{path}}');"
+  },
+  {
+    "type": "env",
+    "label": "Env",
+    "category": "command",
+    "group": "data",
+    "description": "Read an environment variable as the new subject.",
+    "keywords": ["environment", "config", "variable"],
+    "chainRole": "root",
+    "codeTemplate": "cy.env('{{key}}');"
+  },
+  {
+    "type": "task",
+    "label": "Task",
+    "category": "command",
+    "group": "data",
+    "description": "Run a Node task registered in the Cypress plugins/config.",
+    "keywords": ["node", "plugin", "backend", "run"],
+    "chainRole": "root",
+    "codeTemplate": "cy.task('{{event}}'[[arg:, {{arg}}]]);"
+  },
+  {
+    "type": "readFile",
+    "label": "Read File",
+    "category": "command",
+    "group": "data",
+    "description": "Read a file's contents as the new subject.",
+    "keywords": ["file", "read", "fs"],
+    "chainRole": "root",
+    "codeTemplate": "cy.readFile('{{path}}');"
+  },
+  {
+    "type": "writeFile",
+    "label": "Write File",
+    "category": "command",
+    "group": "data",
+    "description": "Write contents to a file.",
+    "keywords": ["file", "write", "fs"],
+    "chainRole": "root",
+    "codeTemplate": "cy.writeFile('{{path}}', '{{contents}}');"
+  },
+  {
+    "type": "getCookie",
+    "label": "Get Cookie",
+    "category": "command",
+    "group": "data",
+    "description": "Get a browser cookie by name as the new subject.",
+    "keywords": ["cookie", "session", "read"],
+    "chainRole": "root",
+    "codeTemplate": "cy.getCookie('{{name}}');"
+  },
+  {
+    "type": "setCookie",
+    "label": "Set Cookie",
+    "category": "command",
+    "group": "data",
+    "description": "Set a browser cookie.",
+    "keywords": ["cookie", "session", "write"],
+    "codeTemplate": "cy.setCookie('{{name}}', '{{value}}');"
+  },
+
+  {
+    "type": "intercept",
+    "label": "Intercept",
+    "category": "command",
+    "group": "network",
+    "description": "Intercept matching network requests, optionally stubbing the response.",
+    "keywords": ["network", "mock", "stub", "spy", "route", "api"],
+    "chainRole": "root",
+    "codeTemplate": "cy.intercept([[method:'{{method}}', ]]'{{url}}'[[stubResponse:, {{stubResponse}}]]);"
+  },
+  {
+    "type": "waitAlias",
+    "label": "Wait for Alias",
+    "category": "command",
+    "group": "network",
+    "description": "Wait for a previously intercepted (or otherwise aliased) request/response.",
+    "keywords": ["network", "wait", "alias", "request", "response"],
+    "chainRole": "root",
+    "codeTemplate": "cy.wait('{{alias}}');",
+    "requiresTriggerBeforeUse": true
+  },
+  {
+    "type": "request",
+    "label": "Request",
+    "category": "command",
+    "group": "network",
+    "description": "Make an HTTP request directly, outside the app under test.",
+    "keywords": ["network", "api", "http", "fetch"],
+    "chainRole": "root",
+    "codeTemplate": "cy.request({\n[[method:  method: '{{method}}',\n]]  url: '{{url}}'[[body:,\n  body: {{body}}]]\n});"
+  },
+  {
+    "type": "customCommand",
+    "label": "Custom Command",
+    "category": "command",
+    "group": "custom-command",
+    "description": "Invoke a project-defined Cypress custom command (Cypress.Commands.add).",
+    "keywords": ["custom", "command", "project", "plugin"],
+    "chainRole": "subject",
+    "chainTemplate": ".{{commandName}}([[args:{{args}}]])",
+    "codeTemplate": "cy.{{commandName}}([[args:{{args}}]]);"
   }
 ]

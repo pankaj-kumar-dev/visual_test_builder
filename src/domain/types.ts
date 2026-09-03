@@ -10,8 +10,34 @@
  *   2. *NodeDef / PropDef    — static configuration loaded into the registry.
  */
 
-/** The kind of input a property field renders as (HLD §10, PropDef.type). */
-export type PropType = 'text' | 'dropdown';
+/**
+ * The kind of input a property field renders as (HLD §10, PropDef.type).
+ *  - `binding`    — Phase 2: a callback-bound identifier (e.g. `then`'s "bind
+ *                   result as"). Rendered as text; validated as a bare JS
+ *                   identifier and emitted unquoted, never escaped as a string
+ *                   (engine/propValue.ts's `isValidBindingName`/`bindingToken`).
+ *  - `expression` — Phase 2: a raw, trusted JS expression (e.g. `wrap`'s
+ *                   subject, `$row`). Rendered as text; emitted verbatim,
+ *                   unquoted and unescaped — the one deliberate trust boundary
+ *                   in the generator, since arbitrary JS can't be validated
+ *                   here. Use only where Cypress itself expects an expression,
+ *                   not a string literal.
+ *  - `reference-name` — Phase 3: the name a node *produces* as a Cypress alias
+ *                   (`as`'s `name`, `.as('{{name}}')`). Rendered as text;
+ *                   validated as a bare identifier like `binding` (reused
+ *                   validator — same shape rule, deliberately different type
+ *                   tag: a reference is flow-wide-by-name and ordered, a
+ *                   binding is closure-scoped, engine/references.ts vs
+ *                   engine/nodeContext.ts must never be collapsed into one
+ *                   mechanism), but *emitted quoted* like ordinary text
+ *                   (`.as('name')` takes a string, not a bare identifier).
+ *                   Consuming a reference is a plain `text` field whose value
+ *                   happens to start with `@` — the same convention Cypress
+ *                   itself uses at runtime (`cy.get('@alias')`) — recognized
+ *                   by engine/references.ts, not a separate type; see
+ *                   `PropDef.acceptsReference` for the picker-UI hint.
+ */
+export type PropType = 'text' | 'dropdown' | 'number' | 'binding' | 'expression' | 'reference-name';
 
 /**
  * Semantic facts about where a node sits in the flow, derived from the Flow JSON
@@ -26,6 +52,18 @@ export interface NodeContext {
   isInsideChain: boolean;
   /** Whether an earlier node in the composition already produced this node's subject. */
   hasSubject: boolean;
+  /**
+   * Callback-bound identifiers visible at this node (Phase 2), nearest-binder
+   * last. Derived by walking every ancestor block (`childComposition: 'block'`)
+   * and resolving its `bindsParameters` against its own props — the same rule
+   * `engine/processFlow.ts` uses to build the actual callback signature
+   * (`engine/propValue.ts`'s `resolveBindingNames`), so a name can never appear
+   * "in scope" here without also appearing in the generated callback, or vice
+   * versa. Distinct from an alias/reference (Phase 3): a binding exists only
+   * for the lexical extent of its callback body, never resolved by name lookup
+   * across the whole flow.
+   */
+  bindingsInScope: string[];
 }
 
 /**
@@ -91,6 +129,18 @@ export interface PropDef {
    * therefore still counts toward unresolved detection).
    */
   disabledWhen?: PropCondition;
+  /**
+   * Phase 3 UI hint: this `text` field may hold a reference consumption
+   * (`@name`) instead of a literal value (e.g. `get`'s `selector`, real
+   * Cypress: `cy.get('@alias')` works exactly like `cy.get('.css-selector')`).
+   * Purely presentational — it tells the property editor to also offer a
+   * reference picker — and never changes generation (a `@name` string is
+   * already emitted correctly by the existing `text` substitution) or
+   * structural validation. Semantic validation (engine/references.ts) checks
+   * *every* prop value for the `@` convention regardless of this flag; the
+   * flag only decides whether the picker UI appears.
+   */
+  acceptsReference?: boolean;
 }
 
 /**
@@ -111,6 +161,14 @@ export interface PaletteMetadata {
   description?: string;
   /** Extra search synonyms (e.g. "dropdown" for select). Matched by palette search only. */
   keywords?: string[];
+  /**
+   * Phase 5: exclude this node from the palette entirely (`ui/palette/paletteModel.ts`'s
+   * `collectPaletteNodes`) — for a node that is only ever created *by* the app
+   * (the generic `slot` wrapper, engine/slots.ts), never dragged in by a user.
+   * It remains a fully valid, addressable registry type otherwise; this hides it
+   * from one specific UI surface, nothing else.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -124,18 +182,107 @@ export interface StructuralNodeDef extends PaletteMetadata {
   category: 'structural';
   allowedChildren: string[];
   props: PropDef[];
-  /** Cypress code template with {{key}} and {{children}} placeholders (HLD §12). */
-  codeTemplate: string;
   /**
-   * How this node's children compose (Phase 2, engine/chain.ts). Omitted (the
-   * default) means the existing HLD §12 behavior: children are independent
-   * statements joined by newlines and substituted into `{{children}}`. `'chain'`
-   * means children compose into one Cypress subject expression instead
-   * (`cy.get(x).find(y).click()`) — see the `chain` node in building-blocks.json.
-   * `codeTemplate` is unused (empty string) for a chain-composition node; its
-   * output is built entirely by `engine/processFlow.ts`'s chain generator.
+   * Cypress code template with {{key}}, {{children}} and (block nodes only)
+   * {{params}} placeholders (HLD §12). Optional for a `chainRole: 'subject'`
+   * node with a `chainTemplate` — same Phase 1 "template duplication" rule as
+   * `CommandNodeDef.codeTemplate` (`engine/chain.ts`'s `deriveStandaloneTemplate`):
+   * its standalone form is always `cy.get('{{selector}}')` + `chainTemplate`.
    */
-  childComposition?: 'chain';
+  codeTemplate?: string;
+  /**
+   * How this node's children compose. Omitted (the default) means the existing
+   * HLD §12 behavior: children are independent statements joined by newlines
+   * and substituted into `{{children}}`. `'chain'` (Phase 2, engine/chain.ts)
+   * means children compose into one Cypress subject expression instead
+   * (`cy.get(x).find(y).click()`) — see the `chain` node in building-blocks.json;
+   * `codeTemplate` is unused (empty string) for it, since its output is built
+   * entirely by `engine/processFlow.ts`'s chain generator. `'block'` (Phase 2)
+   * marks a node whose children are an ordinary nested statement body owned by
+   * a Cypress callback (`within`, `then`, `each`, `session`) — generation-wise
+   * it is handled exactly like the default (children substituted into
+   * `{{children}}`); the marker exists for validation (an empty block is
+   * flagged, engine/unresolved.ts) and the tree UI (§24), not for the generator,
+   * which never branches on it. `'reuse'` (Phase 5, engine/reusableFlows.ts)
+   * marks a *reusable-flow invocation*: its output is not template substitution
+   * at all but a generation-time expansion of a stored `ReusableFlowDef`'s body
+   * (with its parameters substituted) through the ordinary generator — see
+   * `engine/processFlow.ts`'s single `childComposition === 'reuse'` dispatch,
+   * the same shape as the pre-existing `'chain'` dispatch: one generic
+   * composition mode, not a per-command branch.
+   */
+  childComposition?: 'chain' | 'block' | 'reuse';
+  /**
+   * Phase 5: named child slots for **generic multi-slot composition** (`if`/
+   * `else`, and any future multi-slot construct). When present, this node's
+   * children are not a single ordinary list but one `slot` wrapper node
+   * (registry type `"slot"`, engine/slots.ts) per declared name, each holding
+   * its own ordinary children. `codeTemplate` references each slot's contents
+   * with a `{{slot:name}}` token (engine/processFlow.ts), and an *optional*
+   * slot's surrounding text is wrapped in `[[slot:name: ...]]` — the same
+   * optional-segment mechanism `[[key: ...]]` already uses for an empty prop,
+   * generalized to "this slot has no content" (engine/processFlow.ts's
+   * `resolveProps`). A node with no `slots` never has a `slot`-typed child;
+   * the reverse is checked too (engine/unresolved.ts) so a `slot` node can
+   * never end up misplaced under a non-declaring parent or under the wrong
+   * slot name — one generic structural rule, not a per-construct validator.
+   */
+  slots?: string[];
+  /**
+   * Phase 5: render this node's *displayed* label from one of its own prop
+   * values (title-cased) instead of the registry's static `label` — used by
+   * the single generic `slot` node so a `then`/`else` row reads as "Then"/
+   * "Else" in the tree rather than an undifferentiated "Slot" (engine/slots.ts
+   * defines the one slot type; this is a display hint only, never consulted by
+   * generation or validation). Omitted for every node with a fixed label.
+   */
+  labelFromProp?: string;
+  /**
+   * This node's role inside a `chain` node (Phase 2, engine/chain.ts) — same
+   * contract as `CommandNodeDef.chainRole`. A block node is always `'subject'`
+   * when present (a block always needs a preceding subject to scope/operate
+   * on) or omitted entirely when the node is never chain-participable
+   * (`session`, which is always a standalone root-level statement).
+   */
+  chainRole?: 'root' | 'subject';
+  /**
+   * The `.method(...)` fragment used when this node continues a chain
+   * (`chainRole: 'subject'` only) — same contract as `CommandNodeDef.chainTemplate`.
+   * For a block node this typically embeds both `{{children}}` and `{{params}}`,
+   * e.g. `.within(() => {\n{{children}}\n})` or `.then(({{params}}) => {\n{{children}}\n})`.
+   */
+  chainTemplate?: string;
+  /**
+   * Phase 2 callback bindings: the parameter list of this block's callback,
+   * outermost first. Each entry is either a literal token emitted as-is (e.g.
+   * `each`'s fixed `"$el"`, `"index"`) or a `"{{key}}"` reference to one of this
+   * node's own `props` (e.g. `then`'s `"{{as}}"`, a user-editable `binding`
+   * field) — resolved by `engine/propValue.ts`'s `resolveBindingNames`, the one
+   * function both the generator (building `{{params}}`) and `NodeContext`
+   * (deriving `bindingsInScope` for descendants) call, so the two can never
+   * disagree about what a block actually binds. An entry that resolves to no
+   * usable value (an empty optional `{{key}}`) is dropped from the signature
+   * entirely rather than leaving a hole.
+   */
+  bindsParameters?: string[];
+  /**
+   * Phase 3: this node defines a *reference test-scope boundary* — a
+   * container whose direct `it`/hook children each get an isolated local
+   * reference scope, sharing only what the container's hooks produce
+   * (`describe`, real Cypress). Metadata-driven so `engine/references.ts`
+   * never hardcodes `node.type === 'describe'`; a future structural container
+   * with the same scoping behavior becomes one automatically.
+   */
+  referenceScopeBoundary?: boolean;
+  /**
+   * Phase 3: this node's produced references become visible to every sibling
+   * inside its `referenceScopeBoundary` parent — real Cypress: a `beforeAll`/
+   * `beforeEach` hook's aliases are available in every `it` in the suite,
+   * regardless of declaration order, because the hook always runs first.
+   * `afterAll`/`afterEach` omit this — they run *after* every test, so their
+   * aliases can't have been available during it.
+   */
+  producesReferencesForSiblings?: boolean;
 }
 
 /**
@@ -146,8 +293,15 @@ export interface CommandNodeDef extends PaletteMetadata {
   type: string;
   label: string;
   category: 'command';
-  /** Cypress code template with {{key}} placeholders (HLD §12). */
-  codeTemplate: string;
+  /**
+   * Cypress code template with {{key}} placeholders (HLD §12). Optional for a
+   * `chainRole: 'subject'` command: its standalone form is always
+   * `cy.get('{{selector}}')` followed by `chainTemplate` (Phase 1, "template
+   * duplication" — engine/chain.ts's `deriveStandaloneTemplate`), so authoring
+   * both would just repeat the same text. Provide an explicit `codeTemplate`
+   * only when the standalone form must differ from that derivation.
+   */
+  codeTemplate?: string;
   /**
    * This command's role inside a `chain` node (Phase 2, engine/chain.ts):
    *  - `'root'`    — may open a chain; creates the initial Cypress subject
@@ -162,12 +316,58 @@ export interface CommandNodeDef extends PaletteMetadata {
   chainRole?: 'root' | 'subject';
   /**
    * The `.method(...)` fragment used when this command continues a chain
-   * (`chainRole: 'subject'` only). Deliberately separate from `codeTemplate`:
-   * the standalone form re-anchors with its own `cy.get(selector)` (Phase 1
-   * self-containment), while the chain form omits the selector entirely — the
-   * subject already came from an earlier node in the chain.
+   * (`chainRole: 'subject'` only). Also the source `codeTemplate` is derived
+   * from when the command omits its own (see above).
    */
   chainTemplate?: string;
+  /**
+   * Phase 4: this command consumes a reference whose whole point is that
+   * *something ran in between* the reference's producer and this use — real
+   * Cypress: `cy.wait('@alias')` after `cy.intercept(...).as('alias')` is
+   * meaningless unless a request-triggering action (`cy.visit`, `cy.click`,
+   * …) happened in between, or the wait will simply hang waiting for a call
+   * that was never made. Set only on `waitAlias`. Checked generically by
+   * `engine/references.ts` against any node whose registry `group` is
+   * `'action'` or `'browser'` (the existing taxonomy already used everywhere
+   * else) — never a `node.type` name check, and never a second alias system:
+   * the alias itself is the exact same Phase 3 reference produced by `as`.
+   */
+  requiresTriggerBeforeUse?: boolean;
+}
+
+/**
+ * Phase 5: a reusable flow's declared parameter — the definition-side half of
+ * "reusable flow parameter/argument" (kept a distinct concept from the
+ * *argument*, the invocation-side value bound to it: `FlowNode.props[key]` on
+ * the `flowInvocation` node). Deliberately reuses `PropType`/`required`/
+ * `options` — the exact same shape a `PropDef` already has — so an invocation's
+ * dynamic property-editor schema (engine/reusableFlows.ts) is just an ordinary
+ * `PropDef[]`, resolved through the same generic `PropertyField` rendering the
+ * rest of the app already uses; no new UI-field mechanism is introduced for it.
+ */
+export interface FlowParamDef {
+  key: string;
+  label: string;
+  type: PropType;
+  required: boolean;
+  options?: string[];
+}
+
+/**
+ * Phase 5: a reusable, parameterized flow *definition* (HLD-successor —
+ * "Reusable Flow Architecture"). `body` is an ordinary list of FlowNodes —
+ * there is no second AST — whose prop values may contain `{{paramKey}}`
+ * tokens (engine/reusableFlows.ts's `interpolate`) referencing `params`.
+ * Expansion (substituting an invocation's arguments and splicing the result
+ * into the existing generator) happens only at generation time and never
+ * mutates this definition — see `engine/reusableFlows.ts`.
+ */
+export interface ReusableFlowDef {
+  id: string;
+  name: string;
+  description?: string;
+  params: FlowParamDef[];
+  body: FlowNode[];
 }
 
 /**
@@ -194,4 +394,29 @@ export interface AppState {
    * from outside the canvas.
    */
   collapsedNodeIds: Record<string, true>;
+  /**
+   * Phase 5: the reusable-flow library — seeded at startup from bundled config
+   * (config/reusableFlows.json, mirroring how the registry seeds from its own
+   * config files), read by `processFlow`/`findUnresolvedNodes`/`findSemanticIssues`
+   * for expansion and validation, and by the property editor for an invocation
+   * node's dynamic schema. Authoring/editing the library is out of Phase 5 scope
+   * (it stays a data/file-level operation for now), so nothing currently mutates
+   * this field — it lives in Redux rather than the registry because a future
+   * authoring UI will need to change it at runtime, unlike the static registry.
+   */
+  reusableFlows: ReusableFlowDef[];
+  /**
+   * Phase 5: undo/redo history around the single `applyFlow` choke point
+   * (state/builderSlice.ts). `past` holds snapshots older than the current
+   * `flow`, nearest-previous last; `future` holds snapshots newer than it,
+   * nearest-next last — the standard `past[] / current / future[]` shape.
+   * Undo/redo themselves never push onto either stack (they only move entries
+   * between them); any *other* flow mutation pushes the pre-mutation flow onto
+   * `past` and clears `future`. Pure history bookkeeping — never serialized into
+   * the Flow JSON, never read by `processFlow`.
+   */
+  history: {
+    past: (FlowNode | null)[];
+    future: (FlowNode | null)[];
+  };
 }

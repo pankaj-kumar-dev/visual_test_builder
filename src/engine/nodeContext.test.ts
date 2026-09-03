@@ -70,6 +70,7 @@ describe('deriveNodeContext', () => {
       parentType: 'it',
       isInsideChain: false,
       hasSubject: false,
+      bindingsInScope: [],
     });
   });
 
@@ -78,6 +79,7 @@ describe('deriveNodeContext', () => {
       parentType: 'chain',
       isInsideChain: true,
       hasSubject: false,
+      bindingsInScope: [],
     });
   });
 
@@ -92,6 +94,7 @@ describe('deriveNodeContext', () => {
       parentType: 'it',
       isInsideChain: false,
       hasSubject: false,
+      bindingsInScope: [],
     });
   });
 
@@ -133,7 +136,7 @@ describe('resolveSchema — the four contexts from the brief', () => {
   });
 
   it('an assertion in a chain keeps assertion/value/count and drops only the selector', () => {
-    const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true };
+    const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true, bindingsInScope: [] };
     expect(resolveSchema('should', inChain, reg).map((p) => p.def.key)).toEqual([
       'assertion', 'value', 'count',
     ]);
@@ -144,14 +147,14 @@ describe('resolveSchema — the four contexts from the brief', () => {
   });
 
   it('reports what a context hides, so the editor can explain the absence', () => {
-    const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true };
+    const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true, bindingsInScope: [] };
     expect(hiddenProps('find', inChain, reg).map((p) => p.label)).toEqual(['Container Selector']);
     expect(hiddenProps('find', ROOT_CONTEXT, reg)).toEqual([]);
   });
 });
 
 describe('matchesCondition — the generic rule', () => {
-  const context = { parentType: 'chain', isInsideChain: true, hasSubject: true };
+  const context = { parentType: 'chain', isInsideChain: true, hasSubject: true, bindingsInScope: [] };
 
   it('holds when there is no condition at all', () => {
     expect(matchesCondition(undefined, context)).toBe(true);
@@ -179,7 +182,7 @@ describe('resolveSchema — mechanism, on fixtures', () => {
       commandProps: { demo: props },
     });
 
-  const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true };
+  const inChain = { parentType: 'chain', isInsideChain: true, hasSubject: true, bindingsInScope: [] };
 
   it('hides a field whose visibleWhen does not hold', () => {
     const registry = fixture([
@@ -207,5 +210,80 @@ describe('resolveSchema — mechanism, on fixtures', () => {
 
   it('returns an empty schema for an unknown node type', () => {
     expect(resolveSchema('nope', ROOT_CONTEXT, fixture([]))).toEqual([]);
+  });
+});
+
+describe('deriveNodeContext — Phase 2 bindingsInScope', () => {
+  /** describe > it > each($el,index) > then(as:'val') > [leaf placeholder]. */
+  function nestedBindingFlow(): FlowNode {
+    return {
+      id: 'describe-1',
+      type: 'describe',
+      props: { label: 'Suite' },
+      children: [
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'test' },
+          children: [
+            {
+              id: 'each-1',
+              type: 'each',
+              props: { selector: '.rows' },
+              children: [
+                {
+                  id: 'then-1',
+                  type: 'then',
+                  props: { selector: '.rows', as: 'val' },
+                  children: [{ id: 'log-1', type: 'log', props: { message: 'x' } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('the root and a node with no block ancestors see no bindings', () => {
+    expect(ROOT_CONTEXT.bindingsInScope).toEqual([]);
+    const flow = nestedBindingFlow();
+    expect(deriveNodeContext(flow, 'it-1', reg).bindingsInScope).toEqual([]);
+  });
+
+  it("each's fixed params are visible to its direct child", () => {
+    const flow = nestedBindingFlow();
+    expect(deriveNodeContext(flow, 'then-1', reg).bindingsInScope).toEqual(['$el', 'index']);
+  });
+
+  it("both each's and then's bindings are visible three levels down (closure accumulation)", () => {
+    const flow = nestedBindingFlow();
+    expect(deriveNodeContext(flow, 'log-1', reg).bindingsInScope).toEqual(['$el', 'index', 'val']);
+  });
+
+  it('an unbound then (empty "as") contributes nothing to scope', () => {
+    const flow = nestedBindingFlow();
+    flow.children![0].children![0].children![0].props!.as = '';
+    expect(deriveNodeContext(flow, 'log-1', reg).bindingsInScope).toEqual(['$el', 'index']);
+  });
+
+  it('an invalid binding name ("as: 2cool") contributes nothing to scope — matches what the generator actually emits', () => {
+    const flow = nestedBindingFlow();
+    flow.children![0].children![0].children![0].props!.as = '2cool';
+    expect(deriveNodeContext(flow, 'log-1', reg).bindingsInScope).toEqual(['$el', 'index']);
+  });
+
+  it("a sibling branch never sees another branch's bindings", () => {
+    const flow = nestedBindingFlow();
+    // A plain click dropped as a second child of `it`, alongside `each` — it must
+    // not inherit `each`'s bindings just because they're both under the same test.
+    flow.children![0].children!.push({ id: 'click-1', type: 'click', props: {} });
+    expect(deriveNodeContext(flow, 'click-1', reg).bindingsInScope).toEqual([]);
+  });
+
+  it('childContext defaults bindingsInScope to empty when the caller does not track it (engine/unresolved.ts)', () => {
+    const flow = nestedBindingFlow();
+    const each = flow.children![0].children![0];
+    expect(childContext(each, 0, reg).bindingsInScope).toEqual([]);
   });
 });

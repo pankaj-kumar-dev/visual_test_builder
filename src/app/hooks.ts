@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../state/store';
 import { findUnresolvedNodes, type UnresolvedNode } from '../engine/unresolved';
+import { findSemanticIssues, type SemanticIssue } from '../engine/references';
 
 export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
 export const useAppSelector = useSelector.withTypes<RootState>();
@@ -21,5 +22,18 @@ export const useAppSelector = useSelector.withTypes<RootState>();
  */
 export function useUnresolvedNodes(): UnresolvedNode[] {
   const flow = useAppSelector((state) => state.flow);
-  return useMemo(() => findUnresolvedNodes(flow), [flow]);
+  const reusableFlows = useAppSelector((state) => state.reusableFlows);
+  return useMemo(() => findUnresolvedNodes(flow, undefined, reusableFlows), [flow, reusableFlows]);
+}
+
+/**
+ * Single source of truth for Phase 3 *semantic* issues (unknown/out-of-order/
+ * out-of-scope references, shadowed aliases) — deliberately a separate hook
+ * from `useUnresolvedNodes`, mirroring `engine/unresolved.ts`'s structural
+ * checks vs `engine/references.ts`'s semantic ones staying two mechanisms.
+ */
+export function useSemanticIssues(): SemanticIssue[] {
+  const flow = useAppSelector((state) => state.flow);
+  const reusableFlows = useAppSelector((state) => state.reusableFlows);
+  return useMemo(() => findSemanticIssues(flow, undefined, reusableFlows), [flow, reusableFlows]);
 }

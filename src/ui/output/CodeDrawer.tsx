@@ -15,13 +15,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { useAppDispatch, useAppSelector, useUnresolvedNodes } from '../../app/hooks';
+import { useAppDispatch, useAppSelector, useSemanticIssues, useUnresolvedNodes } from '../../app/hooks';
 import { revealNode, setCodeDrawerOpen } from '../../state/builderSlice';
 
 export function CodeDrawer() {
   const dispatch = useAppDispatch();
   const code = useAppSelector((state) => state.generatedCode);
   const unresolved = useUnresolvedNodes();
+  const semanticIssues = useSemanticIssues();
   const [copied, setCopied] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -61,6 +62,12 @@ export function CodeDrawer() {
   // reducer — there is no duplicate "where is this node" logic here — and the row
   // scrolls itself into view once it renders as the selected node (TreeNode).
   function handleUnresolvedClick(nodeId: string) {
+    dispatch(revealNode(nodeId));
+  }
+
+  // Same reveal behavior for a semantic-issue entry — one "jump to this node"
+  // mechanism (REVEAL_NODE), shared by both the structural and semantic lists.
+  function handleSemanticIssueClick(nodeId: string) {
     dispatch(revealNode(nodeId));
   }
 
@@ -117,6 +124,33 @@ export function CodeDrawer() {
                     onClick={() => handleUnresolvedClick(node.id)}
                   >
                     {node.label}: {node.missing.join(', ')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {semanticIssues.length > 0 && (
+          // Phase 3: a genuinely separate section from "Unresolved properties"
+          // above — a shape problem (required field empty) and a meaning
+          // problem (reference resolves to nothing) are different questions,
+          // per engine/references.ts's structural-vs-semantic distinction.
+          <div
+            className="code-drawer__warning code-drawer__warning--semantic"
+            role="alert"
+            data-testid="semantic-warning"
+          >
+            <strong>Reference issues:</strong>
+            <ul>
+              {semanticIssues.map((issue, index) => (
+                <li key={`${issue.id}-${issue.kind}-${index}`}>
+                  <button
+                    type="button"
+                    className="code-drawer__warning-item"
+                    onClick={() => handleSemanticIssueClick(issue.id)}
+                  >
+                    {issue.label}: {issue.message}
                   </button>
                 </li>
               ))}

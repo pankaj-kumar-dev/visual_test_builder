@@ -8,6 +8,9 @@
  *  - show an unresolved-required-property warning (Phase 2 UI) sourced from the
  *    same `findUnresolvedNodes` result the code drawer and property editor use
  *    (threaded down from Canvas as `unresolvedById`, not recomputed here);
+ *  - show a semantic (reference) issue warning (Phase 3), sourced the same way
+ *    from `findSemanticIssues` (`semanticIssueById`) — a distinct visual state
+ *    from the structural one above, since they answer different questions;
  *  - scroll itself into view when it becomes the selected node, so a selection made
  *    from outside the canvas (the drawer's warning list) always lands somewhere
  *    visible (§30).
@@ -25,6 +28,7 @@ import { Fragment, memo, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import type { FlowNode } from '../../domain/types';
 import { getSchema } from '../../engine/nodeContext';
+import { resolveBindingNames } from '../../engine/propValue';
 import { getRegistry } from '../../registry';
 import { deleteNode, selectNode, toggleNodeCollapse } from '../../state/builderSlice';
 import { setActiveDrag, setDragPayload } from '../dnd';
@@ -35,6 +39,8 @@ interface TreeNodeProps {
   node: FlowNode;
   /** node id -> human-readable labels of its missing required props. */
   unresolvedById: Map<string, string[]>;
+  /** Phase 3: node id -> a semantic (reference) issue message, if any. */
+  semanticIssueById: Map<string, string>;
 }
 
 const DROP_CLASS: Record<string, string> = {
@@ -42,7 +48,7 @@ const DROP_CLASS: Record<string, string> = {
   invalid: ' drop-invalid',
 };
 
-function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
+function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps) {
   const dispatch = useAppDispatch();
   const isSelected = useAppSelector((state) => state.selectedNodeId === node.id);
   // One boolean per row: an unrelated node's collapse toggle re-renders only that
@@ -50,18 +56,42 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
   const isCollapsed = useAppSelector((state) => !!state.collapsedNodeIds[node.id]);
   const { dropState, dropHandlers } = useNodeDrop(node);
   const missing = unresolvedById.get(node.id);
+  const semanticIssue = semanticIssueById.get(node.id);
   const rowRef = useRef<HTMLDivElement>(null);
 
   const registry = getRegistry();
   const def = registry.getBlock(node.type) ?? registry.getFunction(node.type);
-  const label = def?.label ?? node.type;
+  // Phase 5: a node may ask to be labeled from one of its own prop values
+  // instead of the registry's static label (`StructuralNodeDef.labelFromProp`)
+  // — used by the single generic `slot` node so a `then`/`else` row reads as
+  // "Then"/"Else" rather than an undifferentiated "Slot". Display-only.
+  const labelSourceKey = def && 'labelFromProp' in def ? def.labelFromProp : undefined;
+  const labelSourceValue = labelSourceKey ? node.props?.[labelSourceKey] : undefined;
+  const label = labelSourceValue
+    ? labelSourceValue.charAt(0).toUpperCase() + labelSourceValue.slice(1)
+    : (def?.label ?? node.type);
 
   // A one-line hint of what this node is configured to do — the first property in
   // schema order that has a value. Generic on purpose: it is what tells fifty
   // "Test Case" rows apart in a large flow without a per-command rendering rule.
-  const detail = getSchema(node.type, registry)
-    .map((prop) => node.props?.[prop.key]?.trim())
-    .find((value) => !!value);
+  // Skipped for a `labelFromProp` node (Phase 5's `slot`): its label already
+  // *is* that same prop value, so the hint would only repeat it right next to it.
+  const detail = labelSourceValue
+    ? undefined
+    : getSchema(node.type, registry)
+        .map((prop) => node.props?.[prop.key]?.trim())
+        .find((value) => !!value);
+
+  // Phase 2: a block node's resolved callback signature (e.g. "$el, index"),
+  // shown so the row makes its binding obvious without opening the property
+  // editor. Generic — driven by the same `bindsParameters` metadata and
+  // resolution the generator uses (engine/propValue.ts), not a per-command
+  // rendering rule; empty for every non-block node (the overwhelming majority).
+  const isBlock = !!def && 'childComposition' in def && def.childComposition === 'block';
+  const params =
+    isBlock && 'bindsParameters' in def
+      ? resolveBindingNames(def.bindsParameters, node.props ?? {}, getSchema(node.type, registry))
+      : [];
 
   const childCount = node.children?.length ?? 0;
   const isCollapsible = childCount > 0;
@@ -110,6 +140,8 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
     'tree-node__row' +
     (isSelected ? ' is-selected' : '') +
     (missing ? ' tree-node__row--unresolved' : '') +
+    (semanticIssue ? ' tree-node__row--semantic-issue' : '') +
+    (isBlock ? ' tree-node__row--block' : '') +
     (DROP_CLASS[dropState] ?? '');
 
   return (
@@ -120,7 +152,9 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
         data-testid="tree-node"
         data-node-id={node.id}
         data-unresolved={missing ? 'true' : undefined}
+        data-semantic-issue={semanticIssue ? 'true' : undefined}
         data-collapsed={isCollapsible ? String(isCollapsed) : undefined}
+        data-block={isBlock ? 'true' : undefined}
         draggable
         onClick={handleSelect}
         onDragStart={handleDragStart}
@@ -151,7 +185,22 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
                 !{' '}
               </span>
             )}
+            {isBlock && (
+              <span className="tree-node__block-icon" aria-hidden="true" data-testid="tree-node-block-icon">
+                {'{ }'}
+              </span>
+            )}
+            {semanticIssue && (
+              <span className="tree-node__semantic-icon" aria-hidden="true" data-testid="tree-node-semantic-icon">
+                @!
+              </span>
+            )}
             {label}
+            {params.length > 0 && (
+              <span className="tree-node__params" data-testid="tree-node-params">
+                ({params.join(', ')})
+              </span>
+            )}
             {detail && (
               <span className="tree-node__detail" data-testid="tree-node-detail">
                 {detail}
@@ -166,6 +215,11 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
           {missing && (
             <span className="tree-node__missing" data-testid="tree-node-missing">
               {missing.join(', ')}
+            </span>
+          )}
+          {semanticIssue && (
+            <span className="tree-node__semantic-message" data-testid="tree-node-semantic-message">
+              {semanticIssue}
             </span>
           )}
         </span>
@@ -184,7 +238,7 @@ function TreeNodeView({ node, unresolvedById }: TreeNodeProps) {
           {node.children?.map((child, index) => (
             <Fragment key={child.id}>
               <SiblingDropZone parent={node} beforeIndex={index} />
-              <TreeNode node={child} unresolvedById={unresolvedById} />
+              <TreeNode node={child} unresolvedById={unresolvedById} semanticIssueById={semanticIssueById} />
             </Fragment>
           ))}
           <SiblingDropZone parent={node} beforeIndex={childCount} />

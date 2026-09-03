@@ -8,6 +8,14 @@
  * `app/hooks.ts`'s `useUnresolvedNodes`) rather than re-derived here, so this
  * field's warning state always agrees with the canvas highlight and the code
  * drawer's list for the same node.
+ *
+ * Phase 3: a field whose schema marks `acceptsReference` also renders a small
+ * "insert reference" picker alongside the input — populated from
+ * `availableReferences` (computed by the caller via
+ * `engine/references.ts`'s `referencesInScope`, the exact same rule the
+ * semantic validator uses), so the picker can never offer a name validation
+ * would then reject. Picking one writes `@name` into the field through the
+ * same `onChange` as typing — there is no separate reference-value state.
  */
 
 import type { ChangeEvent } from 'react';
@@ -23,6 +31,8 @@ interface PropertyFieldProps {
    * participates in unresolved detection — unlike a hidden one (§21).
    */
   disabled?: boolean;
+  /** Phase 3: reference names currently in scope, for the picker (§ above). */
+  availableReferences?: string[];
   onChange: (value: string) => void;
 }
 
@@ -31,12 +41,19 @@ export function PropertyField({
   value,
   isMissing,
   disabled = false,
+  availableReferences = [],
   onChange,
 }: PropertyFieldProps) {
   function handleChange(
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) {
     onChange(event.target.value);
+  }
+
+  function handlePickReference(event: ChangeEvent<HTMLSelectElement>) {
+    const name = event.target.value;
+    if (name) onChange(`@${name}`);
+    event.target.value = ''; // picker itself has no persistent selection — it's an insert action
   }
 
   return (
@@ -63,13 +80,31 @@ export function PropertyField({
         </select>
       ) : (
         <input
-          type="text"
+          type={def.type === 'number' ? 'number' : 'text'}
           className={`property-field__input${isMissing ? ' is-missing' : ''}`}
           data-testid={`prop-${def.key}`}
           value={value}
           disabled={disabled}
           onChange={handleChange}
         />
+      )}
+
+      {def.acceptsReference && availableReferences.length > 0 && (
+        <select
+          className="property-field__reference-picker"
+          data-testid={`prop-${def.key}-reference-picker`}
+          aria-label={`Insert a reference into ${def.label}`}
+          value=""
+          disabled={disabled}
+          onChange={handlePickReference}
+        >
+          <option value="">Insert reference…</option>
+          {availableReferences.map((name) => (
+            <option key={name} value={name}>
+              @{name}
+            </option>
+          ))}
+        </select>
       )}
 
       {isMissing && (

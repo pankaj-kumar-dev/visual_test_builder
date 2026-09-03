@@ -87,6 +87,43 @@ describe('canDropInto — Phase 2: position-sensitive validation inside a chain'
   });
 });
 
+describe('canDropInto — Phase 5 multi-slot composition (if) and control-flow/workflow/custom-command groups', () => {
+  it('rejects any direct drop onto "if" — it only ever holds its own auto-seeded slots', () => {
+    expect(canDropInto('if', 'click', reg)).toBe(false);
+    expect(canDropInto('if', 'slot', reg)).toBe(false);
+  });
+
+  it('allows an ordinary command, and a nested if/forEach/customCommand, inside a "slot"', () => {
+    for (const type of ['click', 'if', 'forEach', 'customCommand', 'flowInvocation', 'within']) {
+      expect(canDropInto('slot', type, reg), type).toBe(true);
+    }
+  });
+
+  it('rejects a direct drop onto "flowInvocation" — it has no user-editable children', () => {
+    expect(canDropInto('flowInvocation', 'click', reg)).toBe(false);
+  });
+
+  it('allows if/forEach/customCommand/flowInvocation under it/beforeEach (control-flow, workflow, custom-command groups)', () => {
+    for (const hook of ['it', 'beforeEach']) {
+      for (const type of ['if', 'forEach', 'customCommand', 'flowInvocation']) {
+        expect(canDropInto(hook, type, reg), `${hook} <- ${type}`).toBe(true);
+      }
+    }
+  });
+
+  it('rejects if/forEach/flowInvocation directly under describe, same as any other non-hook node', () => {
+    for (const type of ['if', 'forEach', 'flowInvocation']) {
+      expect(canDropInto('describe', type, reg)).toBe(false);
+    }
+  });
+
+  it('allows customCommand inside a chain (it is chain-participable) but not if/forEach/flowInvocation', () => {
+    expect(canDropInto('chain', 'customCommand', reg, [leaf('get')])).toBe(true);
+    expect(canDropInto('chain', 'if', reg, [leaf('get')])).toBe(false);
+    expect(canDropInto('chain', 'forEach', reg, [leaf('get')])).toBe(false);
+  });
+});
+
 describe('reorderTargetIndex — regression: unaffected by the Phase 2 signature change', () => {
   it('resolves the target index for a sibling being moved earlier', () => {
     const children = [leaf('a'), leaf('b'), leaf('c')];

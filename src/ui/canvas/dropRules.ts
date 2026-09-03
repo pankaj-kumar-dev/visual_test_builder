@@ -30,7 +30,7 @@ export function canDropInto(
 ): boolean {
   const parent = registry.getBlock(parentType);
   if (!parent) return false;
-  if (!parent.allowedChildren.includes(childType)) return false;
+  if (!registry.allowsChildType(parent, childType)) return false;
   if (parent.childComposition === 'chain') {
     return canContinueChain(existingChildren, childType, registry);
   }

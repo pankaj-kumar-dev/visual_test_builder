@@ -301,26 +301,35 @@ describe('bundled registry — the palette the app actually renders', () => {
       'Traversal',
       'Action',
       'Assertion',
+      'Utility',
+      'Network',
       'Browser',
+      'Data',
+      'Control Flow',
+      'Workflow',
+      'Custom Command',
     ]);
   });
 
-  it('shows every registry node exactly once', () => {
+  it('shows every non-hidden registry node exactly once (Phase 5\'s internal "slot" wrapper is excluded)', () => {
     const registry = getRegistry();
     const listed = tree
       .flatMap((c) => [...c.items, ...c.subgroups.flatMap((s) => s.items)])
       .map((n) => n.type);
     const expected = [
-      ...registry.getAllBlocks().map((b) => b.type),
-      ...registry.getAllFunctions().map((f) => f.type),
+      ...registry.getAllBlocks().filter((b) => !b.hidden).map((b) => b.type),
+      ...registry.getAllFunctions().filter((f) => !f.hidden).map((f) => f.type),
     ];
     expect(listed.slice().sort()).toEqual(expected.slice().sort());
     expect(new Set(listed).size).toBe(listed.length);
+    expect(listed).not.toContain('slot');
   });
 
-  it('groups traversal into Element and Position', () => {
+  it('groups traversal into Element, Position, Relative and Introspect', () => {
     const traversal = tree.find((c) => c.id === 'traversal')!;
-    expect(traversal.subgroups.map((s) => s.label)).toEqual(['Element', 'Position']);
+    expect(traversal.subgroups.map((s) => s.label)).toEqual([
+      'Element', 'Position', 'Relative', 'Introspect',
+    ]);
     expect(traversal.subgroups[1].items.map((n) => n.type)).toEqual(['first', 'last', 'eq']);
   });
 

@@ -8,7 +8,7 @@
 
 import type { DragEvent } from 'react';
 import { useMemo } from 'react';
-import { useAppDispatch, useAppSelector, useUnresolvedNodes } from '../../app/hooks';
+import { useAppDispatch, useAppSelector, useSemanticIssues, useUnresolvedNodes } from '../../app/hooks';
 import { addNode, selectNode } from '../../state/builderSlice';
 import { readDragPayload } from '../dnd';
 import { TreeNode } from './TreeNode';
@@ -17,11 +17,18 @@ export function Canvas() {
   const dispatch = useAppDispatch();
   const flow = useAppSelector((state) => state.flow);
   const unresolved = useUnresolvedNodes();
+  const semanticIssues = useSemanticIssues();
   // Computed once per render here (not per TreeNode instance) and threaded down,
   // so a large tree doesn't re-run findUnresolvedNodes once per row.
   const unresolvedById = useMemo(
     () => new Map(unresolved.map((u) => [u.id, u.missing])),
     [unresolved],
+  );
+  // Phase 3: same "compute once, thread down" shape for semantic issues —
+  // kept in a separate map, never merged with unresolvedById (§ CodeDrawer).
+  const semanticIssueById = useMemo(
+    () => new Map(semanticIssues.map((s) => [s.id, s.message])),
+    [semanticIssues],
   );
 
   // Clicking the empty canvas background clears the current selection (HLD §13).
@@ -67,7 +74,7 @@ export function Canvas() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <TreeNode node={flow} unresolvedById={unresolvedById} />
+      <TreeNode node={flow} unresolvedById={unresolvedById} semanticIssueById={semanticIssueById} />
     </div>
   );
 }

@@ -15,7 +15,9 @@
     "description": "Query the DOM and narrow the current subject.",
     "subgroups": [
       { "id": "element", "label": "Element" },
-      { "id": "position", "label": "Position" }
+      { "id": "position", "label": "Position" },
+      { "id": "relative", "label": "Relative" },
+      { "id": "introspect", "label": "Introspect" }
     ]
   },
   {
@@ -26,7 +28,8 @@
       { "id": "mouse", "label": "Mouse" },
       { "id": "input", "label": "Input" },
       { "id": "focus", "label": "Focus" },
-      { "id": "viewport", "label": "Viewport" }
+      { "id": "viewport", "label": "Viewport" },
+      { "id": "event", "label": "Event" }
     ]
   },
   {

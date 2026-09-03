@@ -11,7 +11,8 @@
     "props": [
       { "key": "label", "label": "Suite Name", "type": "text", "required": true }
     ],
-    "codeTemplate": "describe('{{label}}', () => {\n{{children}}\n});"
+    "codeTemplate": "describe('{{label}}', () => {\n{{children}}\n});",
+    "referenceScopeBoundary": true
   },
   {
     "type": "it",
@@ -21,12 +22,7 @@
     "subgroup": "suite",
     "description": "A single test case inside a suite.",
     "keywords": ["test", "spec", "case", "scenario"],
-    "allowedChildren": [
-      "click", "type", "visit", "should",
-      "get", "contains", "find", "first", "last", "eq",
-      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
-      "chain"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
     "props": [
       { "key": "label", "label": "Test Name", "type": "text", "required": true }
     ],
@@ -40,14 +36,10 @@
     "subgroup": "hooks",
     "description": "Runs once before all tests in the suite.",
     "keywords": ["hook", "setup", "before"],
-    "allowedChildren": [
-      "click", "type", "visit", "should",
-      "get", "contains", "find", "first", "last", "eq",
-      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
-      "chain"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
     "props": [],
-    "codeTemplate": "before(() => {\n{{children}}\n});"
+    "codeTemplate": "before(() => {\n{{children}}\n});",
+    "producesReferencesForSiblings": true
   },
   {
     "type": "afterAll",
@@ -57,12 +49,7 @@
     "subgroup": "hooks",
     "description": "Runs once after all tests in the suite.",
     "keywords": ["hook", "teardown", "cleanup", "after"],
-    "allowedChildren": [
-      "click", "type", "visit", "should",
-      "get", "contains", "find", "first", "last", "eq",
-      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
-      "chain"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
     "props": [],
     "codeTemplate": "after(() => {\n{{children}}\n});"
   },
@@ -74,14 +61,10 @@
     "subgroup": "hooks",
     "description": "Runs before every test in the suite.",
     "keywords": ["hook", "setup", "each", "before"],
-    "allowedChildren": [
-      "click", "type", "visit", "should",
-      "get", "contains", "find", "first", "last", "eq",
-      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
-      "chain"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
     "props": [],
-    "codeTemplate": "beforeEach(() => {\n{{children}}\n});"
+    "codeTemplate": "beforeEach(() => {\n{{children}}\n});",
+    "producesReferencesForSiblings": true
   },
   {
     "type": "afterEach",
@@ -91,12 +74,7 @@
     "subgroup": "hooks",
     "description": "Runs after every test in the suite.",
     "keywords": ["hook", "teardown", "cleanup", "each", "after"],
-    "allowedChildren": [
-      "click", "type", "visit", "should",
-      "get", "contains", "find", "first", "last", "eq",
-      "clear", "check", "uncheck", "select", "dblclick", "focus", "blur", "scrollIntoView",
-      "chain"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
     "props": [],
     "codeTemplate": "afterEach(() => {\n{{children}}\n});"
   },
@@ -109,12 +87,153 @@
     "childComposition": "chain",
     "description": "Compose commands into one Cypress subject expression.",
     "keywords": ["pipeline", "subject", "compose", "sequence"],
-    "allowedChildren": [
-      "get", "contains", "find", "first", "last", "eq",
-      "click", "type", "clear", "check", "uncheck", "select",
-      "dblclick", "focus", "blur", "scrollIntoView", "should"
-    ],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@data", "@network", "@custom-command", "within", "then", "each"],
     "props": [],
+    "codeTemplate": ""
+  },
+  {
+    "type": "within",
+    "label": "Within",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "childComposition": "block",
+    "chainRole": "subject",
+    "chainTemplate": ".within(() => {\n{{children}}\n})",
+    "description": "Scope subsequent commands to search only within the current subject.",
+    "keywords": ["scope", "callback", "block", "nested", "container"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      {
+        "key": "selector",
+        "label": "Selector",
+        "type": "text",
+        "required": true,
+        "visibleWhen": { "hasSubject": false }
+      }
+    ]
+  },
+  {
+    "type": "then",
+    "label": "Then",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "childComposition": "block",
+    "chainRole": "subject",
+    "chainTemplate": ".then(({{params}}) => {\n{{children}}\n})",
+    "bindsParameters": ["{{as}}"],
+    "description": "Run a callback with the current subject, optionally bound to a name.",
+    "keywords": ["callback", "block", "yield", "resolve", "promise"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      {
+        "key": "selector",
+        "label": "Selector",
+        "type": "text",
+        "required": true,
+        "visibleWhen": { "hasSubject": false }
+      },
+      { "key": "as", "label": "Bind result as (optional)", "type": "binding", "required": false }
+    ]
+  },
+  {
+    "type": "each",
+    "label": "Each",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "childComposition": "block",
+    "chainRole": "subject",
+    "chainTemplate": ".each(({{params}}) => {\n{{children}}\n})",
+    "bindsParameters": ["$el", "index"],
+    "description": "Iterate the current subject, running a callback for each element.",
+    "keywords": ["iterate", "loop", "callback", "block", "collection", "foreach"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      {
+        "key": "selector",
+        "label": "Selector",
+        "type": "text",
+        "required": true,
+        "visibleWhen": { "hasSubject": false }
+      }
+    ]
+  },
+  {
+    "type": "session",
+    "label": "Session",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "childComposition": "block",
+    "description": "Cache and restore a login session by id; the setup callback only re-runs when the session isn't already cached.",
+    "keywords": ["login", "auth", "cache", "callback", "block", "restore"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      { "key": "id", "label": "Session ID", "type": "text", "required": true }
+    ],
+    "codeTemplate": "cy.session('{{id}}', () => {\n{{children}}\n});"
+  },
+  {
+    "type": "slot",
+    "label": "Slot",
+    "category": "structural",
+    "group": "structural",
+    "subgroup": "composition",
+    "hidden": true,
+    "labelFromProp": "name",
+    "description": "A named child region of a multi-slot node (created automatically, never dragged in directly).",
+    "keywords": [],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      { "key": "name", "label": "Slot Name", "type": "text", "required": true }
+    ],
+    "codeTemplate": "{{children}}"
+  },
+  {
+    "type": "if",
+    "label": "If",
+    "category": "structural",
+    "group": "control-flow",
+    "description": "Branch on a condition: runs Then when it is truthy, Else otherwise.",
+    "keywords": ["conditional", "branch", "else", "condition", "switch"],
+    "slots": ["then", "else"],
+    "allowedChildren": [],
+    "props": [
+      { "key": "condition", "label": "Condition", "type": "expression", "required": true }
+    ],
+    "codeTemplate": "if ({{condition}}) {\n{{slot:then}}\n}[[slot:else: else {\n{{slot:else}}\n}]]"
+  },
+  {
+    "type": "forEach",
+    "label": "For Each",
+    "category": "structural",
+    "group": "control-flow",
+    "childComposition": "block",
+    "description": "Iterate an array or expression, running a callback for each item.",
+    "keywords": ["loop", "iterate", "iteration", "collection", "repeat"],
+    "bindsParameters": ["{{itemAs}}", "{{indexAs}}"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      { "key": "source", "label": "Array / Expression", "type": "expression", "required": true },
+      { "key": "itemAs", "label": "Item binding", "type": "binding", "required": true },
+      { "key": "indexAs", "label": "Index binding (optional)", "type": "binding", "required": false }
+    ],
+    "codeTemplate": "{{source}}.forEach(({{params}}) => {\n{{children}}\n});"
+  },
+  {
+    "type": "flowInvocation",
+    "label": "Reusable Flow",
+    "category": "structural",
+    "group": "workflow",
+    "childComposition": "reuse",
+    "description": "Invoke a reusable, parameterized flow (e.g. Login, Search).",
+    "keywords": ["reuse", "template", "invoke", "call", "login", "search"],
+    "allowedChildren": [],
+    "props": [
+      { "key": "flowId", "label": "Flow", "type": "dropdown", "required": true }
+    ],
     "codeTemplate": ""
   }
 ]

@@ -53,7 +53,7 @@ describe('Palette search', () => {
     it('lets a whole category be browsed by typing its name', () => {
       searchPalette('traversal');
       cy.get('[data-testid=palette-results] [data-testid^=palette-item-]')
-        .should('have.length', 6);
+        .should('have.length', 17);
     });
 
     it('narrows further with a second token', () => {
@@ -107,7 +107,7 @@ describe('Palette search', () => {
 
       cy.get('[data-testid=palette-category-traversal]')
         .find('.palette__subtitle')
-        .should('have.length', 2);
+        .should('have.length', 4);
     });
   });
 
