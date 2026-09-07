@@ -29,6 +29,7 @@ export const store = configureStore({
     selectedNodeId: null,
     generatedCode: processFlow(persistedFlow, undefined, reusableFlows),
     isCodeDrawerOpen: false,
+    isValidationPanelOpen: false,
     collapsedNodeIds: {},
     reusableFlows,
     history: { past: [], future: [] },

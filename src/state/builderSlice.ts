@@ -31,6 +31,7 @@ const initialState: AppState = {
   selectedNodeId: null,
   generatedCode: '',
   isCodeDrawerOpen: false,
+  isValidationPanelOpen: false,
   collapsedNodeIds: {},
   reusableFlows: getDefaultReusableFlows(),
   history: { past: [], future: [] },
@@ -196,6 +197,13 @@ const builderSlice = createSlice({
       state.isCodeDrawerOpen = payload;
     },
 
+    // SET_VALIDATION_PANEL_OPEN — open/close the dedicated validation panel
+    // (Phase 5F). Pure UI state, independent of the code drawer's own flag —
+    // does not touch flow or generatedCode.
+    setValidationPanelOpen(state, { payload }: PayloadAction<boolean>) {
+      state.isValidationPanelOpen = payload;
+    },
+
     // TOGGLE_NODE_COLLAPSE — collapse/expand one tree node (Scalable Builder UI).
     // Keyed by the node's stable id, never by position, so reordering siblings
     // can't hand one node's expansion state to another. Pure UI state: it does not
@@ -260,6 +268,7 @@ export const {
   selectNode,
   reorderNode,
   setCodeDrawerOpen,
+  setValidationPanelOpen,
   toggleNodeCollapse,
   revealNode,
   undo,

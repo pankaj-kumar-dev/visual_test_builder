@@ -26,14 +26,70 @@
  * highlights a property field — only the canvas row and the drawer's list).
  */
 
-import type { FlowNode, NodeContext, ReusableFlowDef } from '../domain/types';
+import type { FlowNode, NodeContext, ReusableFlowDef, StructuralNodeDef } from '../domain/types';
 import { getDefaultReusableFlows } from '../config/reusableFlowsConfig';
 import { getRegistry } from '../registry';
 import type { Registry } from '../registry';
 import { childContext, resolveSchema, ROOT_CONTEXT } from './nodeContext';
 import { isValuePresent } from './propValue';
 import { resolveInvocationSchema } from './reusableFlows';
-import { hasInvalidSlotPlacement } from './slots';
+import { hasInvalidSlotPlacement, slotHasContent } from './slots';
+
+/**
+ * Phase 5 completion: human-readable messages for a `requiredSlots` slot with
+ * no content (`try`'s `try`/`catch`) — the multi-slot equivalent of the
+ * existing `childComposition: 'block'` empty-body check just below, generic
+ * over any declaring host via `StructuralNodeDef.requiredSlots`.
+ */
+function emptyRequiredSlotIssues(
+  node: FlowNode,
+  requiredSlots: string[] | undefined,
+): { missing: string[]; missingKeys: string[] } {
+  const missing: string[] = [];
+  const missingKeys: string[] = [];
+  for (const name of requiredSlots ?? []) {
+    if (!slotHasContent(node, name)) {
+      missing.push(`"${name}" is empty`);
+      missingKeys.push(`__slot:${name}`);
+    }
+  }
+  return { missing, missingKeys };
+}
+
+/**
+ * Phase 5 completion: bounds-checking for `StructuralNodeDef.childCardinality`
+ * (e.g. `switch` needing at least one `case` and at most one `default`) —
+ * counts `node`'s own ordinary children by type and compares against each
+ * declared rule. Generic: driven entirely by the registry metadata, never by
+ * `node.type`, so it applies to any future construct with the same shape.
+ */
+function cardinalityIssues(
+  node: FlowNode,
+  childCardinality: StructuralNodeDef['childCardinality'],
+): { missing: string[]; missingKeys: string[] } {
+  const missing: string[] = [];
+  const missingKeys: string[] = [];
+  if (!childCardinality) return { missing, missingKeys };
+
+  const counts = new Map<string, number>();
+  for (const child of node.children ?? []) {
+    counts.set(child.type, (counts.get(child.type) ?? 0) + 1);
+  }
+
+  for (const [type, rule] of Object.entries(childCardinality)) {
+    const count = counts.get(type) ?? 0;
+    const label = rule.label ?? type;
+    if (rule.min !== undefined && count < rule.min) {
+      missing.push(`At least ${rule.min} ${label} is required`);
+      missingKeys.push(`__cardinality:${type}`);
+    }
+    if (rule.max !== undefined && count > rule.max) {
+      missing.push(`At most ${rule.max} ${label} is allowed`);
+      missingKeys.push(`__cardinality:${type}`);
+    }
+  }
+  return { missing, missingKeys };
+}
 
 export interface UnresolvedNode {
   /** The node's own id — lets consumers match this entry back to a specific
@@ -83,7 +139,26 @@ export function findUnresolvedNodes(
       // future multi-slot construct is checked the same way with no new code.
       const invalidSlot = hasInvalidSlotPlacement(node, 'slots' in def ? def.slots : undefined);
 
-      if (missingProps.length > 0 || isEmptyBlock || invalidSlot) {
+      // Phase 5 completion: a required-but-empty named slot (`try`'s
+      // `try`/`catch`) and child-type cardinality bounds (`switch`'s
+      // "at least one case, at most one default") — both generic, metadata-driven,
+      // and additive to the checks above rather than replacing any of them.
+      const requiredSlotIssues = emptyRequiredSlotIssues(
+        node,
+        'requiredSlots' in def ? def.requiredSlots : undefined,
+      );
+      const cardinality = cardinalityIssues(
+        node,
+        'childCardinality' in def ? def.childCardinality : undefined,
+      );
+
+      if (
+        missingProps.length > 0 ||
+        isEmptyBlock ||
+        invalidSlot ||
+        requiredSlotIssues.missing.length > 0 ||
+        cardinality.missing.length > 0
+      ) {
         result.push({
           id: node.id,
           type: node.type,
@@ -92,11 +167,15 @@ export function findUnresolvedNodes(
             ...missingProps.map((prop) => prop.label),
             ...(isEmptyBlock ? ['Block body is empty'] : []),
             ...(invalidSlot ? ['Invalid slot placement'] : []),
+            ...requiredSlotIssues.missing,
+            ...cardinality.missing,
           ],
           missingKeys: [
             ...missingProps.map((prop) => prop.key),
             ...(isEmptyBlock ? ['__body'] : []),
             ...(invalidSlot ? ['__slot'] : []),
+            ...requiredSlotIssues.missingKeys,
+            ...cardinality.missingKeys,
           ],
         });
       }

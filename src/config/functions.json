@@ -19,7 +19,7 @@
     "description": "Select elements by CSS selector.",
     "keywords": ["query", "css", "selector", "element", "data-testid"],
     "chainRole": "root",
-    "codeTemplate": "cy.get('{{selector}}');"
+    "codeTemplate": "cy.get('{{selector}}'[[timeout:, { timeout: {{timeout}} }]]);"
   },
   {
     "type": "contains",
@@ -30,7 +30,7 @@
     "description": "Select the element containing the given text.",
     "keywords": ["text", "label", "search"],
     "chainRole": "root",
-    "codeTemplate": "cy[[selector:.get('{{selector}}')]].contains('{{text}}');"
+    "codeTemplate": "cy[[selector:.get('{{selector}}')]].contains('{{text}}'[[timeout:, { timeout: {{timeout}} }]]);"
   },
   {
     "type": "find",
@@ -41,8 +41,8 @@
     "description": "Search for descendants of the current subject.",
     "keywords": ["descendant", "child", "within", "search"],
     "chainRole": "subject",
-    "chainTemplate": ".find('{{target}}')",
-    "codeTemplate": "cy.get('{{selector}}').find('{{target}}');"
+    "chainTemplate": ".find('{{target}}'[[timeout:, { timeout: {{timeout}} }]])",
+    "codeTemplate": "cy.get('{{selector}}').find('{{target}}'[[timeout:, { timeout: {{timeout}} }]]);"
   },
   {
     "type": "first",

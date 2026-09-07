@@ -14,14 +14,17 @@ import { Canvas } from '../ui/canvas/Canvas';
 import { Palette } from '../ui/palette/Palette';
 import { CodeDrawer } from '../ui/output/CodeDrawer';
 import { PropertyEditor } from '../ui/properties/PropertyEditor';
+import { ValidationPanel } from '../ui/validation/ValidationPanel';
 
 export function App() {
   const isCodeDrawerOpen = useAppSelector((state) => state.isCodeDrawerOpen);
+  const isValidationPanelOpen = useAppSelector((state) => state.isValidationPanelOpen);
+  const isSidePanelOpen = isCodeDrawerOpen || isValidationPanelOpen;
 
   return (
     <div className="app">
       <Header />
-      <div className={`app__workspace${isCodeDrawerOpen ? ' app__workspace--drawer-open' : ''}`}>
+      <div className={`app__workspace${isSidePanelOpen ? ' app__workspace--drawer-open' : ''}`}>
         <aside className="app__panel app__left" aria-label="Node palette">
           <Palette />
         </aside>
@@ -32,6 +35,7 @@ export function App() {
           <PropertyEditor />
         </aside>
         {isCodeDrawerOpen && <CodeDrawer />}
+        {isValidationPanelOpen && <ValidationPanel />}
       </div>
     </div>
   );

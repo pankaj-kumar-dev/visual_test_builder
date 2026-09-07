@@ -223,6 +223,60 @@
     "codeTemplate": "{{source}}.forEach(({{params}}) => {\n{{children}}\n});"
   },
   {
+    "type": "switch",
+    "label": "Switch",
+    "category": "structural",
+    "group": "control-flow",
+    "description": "Branch on a value across any number of Case children, with an optional Default.",
+    "keywords": ["switch", "case", "default", "branch", "conditional"],
+    "allowedChildren": ["case", "default"],
+    "childCardinality": {
+      "case": { "min": 1, "label": "Case" },
+      "default": { "max": 1, "label": "Default" }
+    },
+    "props": [
+      { "key": "expression", "label": "Expression", "type": "expression", "required": true }
+    ],
+    "codeTemplate": "switch ({{expression}}) {\n{{children}}\n}"
+  },
+  {
+    "type": "case",
+    "label": "Switch Case",
+    "category": "structural",
+    "group": "switch",
+    "description": "One branch of a Switch, matched against its Case Value.",
+    "keywords": ["case", "branch", "switch", "value"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [
+      { "key": "value", "label": "Case Value (raw JS, e.g. 'admin' or 2)", "type": "expression", "required": true }
+    ],
+    "codeTemplate": "case {{value}}:\n{{children}}\n  break;"
+  },
+  {
+    "type": "default",
+    "label": "Default",
+    "category": "structural",
+    "group": "switch",
+    "description": "The fallback branch of a Switch, run when no Case matches.",
+    "keywords": ["default", "fallback", "switch", "else"],
+    "allowedChildren": ["@traversal", "@action", "@assertion", "@browser", "@utility", "@data", "@network", "@control-flow", "@workflow", "@custom-command", "chain", "within", "then", "each", "session"],
+    "props": [],
+    "codeTemplate": "default:\n{{children}}\n  break;"
+  },
+  {
+    "type": "try",
+    "label": "Recover",
+    "category": "structural",
+    "group": "control-flow",
+    "description": "Attempt a Try body, recover from a Cypress command failure in Catch, then always run Finally. Uses Cypress's own cy.on('fail', ...) recovery hook — see docs/HLD §12E for why plain JS try/catch cannot express this.",
+    "keywords": ["try", "catch", "finally", "recover", "error", "fail", "exception"],
+    "slots": ["try", "catch", "finally"],
+    "requiredSlots": ["try", "catch"],
+    "allowedChildren": [],
+    "props": [],
+    "codeTemplate": "cy.on('fail', (err) => {\n{{slot:catch}}\n  return false;\n});\n{\n{{slot:try}}\n}[[slot:finally:\n{\n{{slot:finally}}\n}]]"
+  },
+  {
     "type": "flowInvocation",
     "label": "Reusable Flow",
     "category": "structural",

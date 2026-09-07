@@ -336,6 +336,96 @@ describe('findSemanticIssues — Phase 4: requiresTriggerBeforeUse (intercept ->
   });
 });
 
+describe('findSemanticIssues — Phase 5 completion: a trigger hidden inside a reusable-flow invocation still counts', () => {
+  // A reuse invocation has no *real* children in the Flow JSON (only props),
+  // so a trigger authored inside the reusable flow's body would otherwise be
+  // invisible to computeTriggeredSinceProduction's tree walk — this is the
+  // regression these tests guard (engine/references.ts's
+  // `reuseSubtreeContainsTrigger`).
+  const CLICKS_THEN_LOGS: ReusableFlowDef = {
+    id: 'clicksThenLogs',
+    name: 'Clicks then logs',
+    params: [],
+    body: [node('c1', 'click', { selector: '#go' }), node('l1', 'log', { message: 'done' })],
+  };
+  const NO_TRIGGER: ReusableFlowDef = {
+    id: 'noTrigger',
+    name: 'No trigger',
+    params: [],
+    body: [node('l1', 'log', { message: 'noop' })],
+  };
+  const NESTED_TRIGGER: ReusableFlowDef = {
+    id: 'nestedTrigger',
+    name: 'Nested trigger',
+    params: [],
+    body: [
+      { id: 'within-1', type: 'within', props: { selector: '.modal' }, children: [node('c1', 'click', { selector: '#confirm' })] },
+    ],
+  };
+  const CALLS_CLICKS_THEN_LOGS: ReusableFlowDef = {
+    id: 'callsClicksThenLogs',
+    name: 'Calls clicksThenLogs',
+    params: [],
+    body: [node('inv', 'flowInvocation', { flowId: 'clicksThenLogs' })],
+  };
+
+  it('a click authored inside the invoked flow satisfies waitAlias\'s trigger requirement', () => {
+    const flow = node('it-1', 'it', { label: 'x' }, [
+      chain('chain-1', node('intercept-1', 'intercept', { url: '/api/x' }), node('as-1', 'as', { name: 'x' })),
+      node('invoke-1', 'flowInvocation', { flowId: 'clicksThenLogs' }),
+      node('waitAlias-1', 'waitAlias', { alias: '@x' }),
+    ]);
+    expect(findSemanticIssues(flow, undefined, [CLICKS_THEN_LOGS])).toEqual([]);
+  });
+
+  it('an invoked flow with no trigger inside it still raises the ordering warning', () => {
+    const flow = node('it-1', 'it', { label: 'x' }, [
+      chain('chain-1', node('intercept-1', 'intercept', { url: '/api/x' }), node('as-1', 'as', { name: 'x' })),
+      node('invoke-1', 'flowInvocation', { flowId: 'noTrigger' }),
+      node('waitAlias-1', 'waitAlias', { alias: '@x' }),
+    ]);
+    const issues = findSemanticIssues(flow, undefined, [NO_TRIGGER]);
+    expect(issues).toEqual([expect.objectContaining({ id: 'waitAlias-1', kind: 'reference-used-without-trigger' })]);
+  });
+
+  it('a trigger nested inside a block inside the invoked flow still counts', () => {
+    const flow = node('it-1', 'it', { label: 'x' }, [
+      chain('chain-1', node('intercept-1', 'intercept', { url: '/api/x' }), node('as-1', 'as', { name: 'x' })),
+      node('invoke-1', 'flowInvocation', { flowId: 'nestedTrigger' }),
+      node('waitAlias-1', 'waitAlias', { alias: '@x' }),
+    ]);
+    expect(findSemanticIssues(flow, undefined, [NESTED_TRIGGER])).toEqual([]);
+  });
+
+  it('a trigger reached transitively through a flow invoking another flow still counts', () => {
+    const flow = node('it-1', 'it', { label: 'x' }, [
+      chain('chain-1', node('intercept-1', 'intercept', { url: '/api/x' }), node('as-1', 'as', { name: 'x' })),
+      node('invoke-1', 'flowInvocation', { flowId: 'callsClicksThenLogs' }),
+      node('waitAlias-1', 'waitAlias', { alias: '@x' }),
+    ]);
+    expect(findSemanticIssues(flow, undefined, [CALLS_CLICKS_THEN_LOGS, CLICKS_THEN_LOGS])).toEqual([]);
+  });
+
+  it('a cyclic reusable-flow reference cannot make the trigger scan loop forever (visiting guard)', () => {
+    const SELF: ReusableFlowDef = {
+      id: 'selfInvoking',
+      name: 'Self',
+      params: [],
+      body: [node('inv', 'flowInvocation', { flowId: 'selfInvoking' })],
+    };
+    const flow = node('it-1', 'it', { label: 'x' }, [
+      chain('chain-1', node('intercept-1', 'intercept', { url: '/api/x' }), node('as-1', 'as', { name: 'x' })),
+      node('invoke-1', 'flowInvocation', { flowId: 'selfInvoking' }),
+      node('waitAlias-1', 'waitAlias', { alias: '@x' }),
+    ]);
+    // Terminates (no trigger reachable through an infinite self-reference) and
+    // — separately — the cycle itself is flagged on the invocation.
+    const issues = findSemanticIssues(flow, undefined, [SELF]);
+    expect(issues.some((i) => i.kind === 'reference-used-without-trigger')).toBe(true);
+    expect(issues.some((i) => i.kind === 'cyclic-reusable-flow')).toBe(true);
+  });
+});
+
 describe('findSemanticIssues — Phase 5 reusable-flow invocation (unknown / cyclic)', () => {
   const GREET: ReusableFlowDef = {
     id: 'greet',
@@ -353,6 +443,7 @@ describe('findSemanticIssues — Phase 5 reusable-flow invocation (unknown / cyc
         label: 'Reusable Flow',
         kind: 'unknown-reusable-flow',
         message: '"ghost" has no matching reusable-flow definition.',
+        severity: 'error',
       },
     ]);
   });

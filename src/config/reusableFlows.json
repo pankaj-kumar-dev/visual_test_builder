@@ -15,6 +15,16 @@
     ]
   },
   {
+    "id": "logout",
+    "name": "Logout",
+    "description": "Click the logout control and confirm the login form reappears.",
+    "params": [],
+    "body": [
+      { "id": "logout-click", "type": "click", "props": { "selector": "#logout-button" } },
+      { "id": "logout-assert", "type": "should", "props": { "selector": "#login-form", "assertion": "be.visible" } }
+    ]
+  },
+  {
     "id": "search",
     "name": "Search",
     "description": "Type a query into the search box, submit it, and wait for results.",
@@ -25,6 +35,123 @@
       { "id": "search-type-query", "type": "type", "props": { "selector": "#search-input", "value": "{{query}}" } },
       { "id": "search-click-button", "type": "click", "props": { "selector": "#search-button" } },
       { "id": "search-assert-results", "type": "should", "props": { "selector": "#search-results", "assertion": "be.visible" } }
+    ]
+  },
+  {
+    "id": "createRecord",
+    "name": "Create Record",
+    "description": "Visit the new-record form, fill the name field, save, and assert the success notification.",
+    "params": [
+      { "key": "name", "label": "Name", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "create-visit", "type": "visit", "props": { "url": "/records/new" } },
+      { "id": "create-type-name", "type": "type", "props": { "selector": "#name-input", "value": "{{name}}" } },
+      { "id": "create-click-save", "type": "click", "props": { "selector": "#save-button" } },
+      { "id": "create-assert-notification", "type": "should", "props": { "selector": "#notification", "assertion": "contain.text", "value": "created" } }
+    ]
+  },
+  {
+    "id": "readRecord",
+    "name": "Read Record",
+    "description": "Visit a record's detail page and assert the detail panel renders.",
+    "params": [
+      { "key": "recordId", "label": "Record Id", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "read-visit", "type": "visit", "props": { "url": "/records/{{recordId}}" } },
+      { "id": "read-assert-detail", "type": "should", "props": { "selector": "#record-detail", "assertion": "be.visible" } }
+    ]
+  },
+  {
+    "id": "updateRecord",
+    "name": "Update Record",
+    "description": "Visit a record's edit form, replace the name field, save, and assert the success notification.",
+    "params": [
+      { "key": "recordId", "label": "Record Id", "type": "text", "required": true },
+      { "key": "name", "label": "New Name", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "update-visit", "type": "visit", "props": { "url": "/records/{{recordId}}/edit" } },
+      { "id": "update-clear-name", "type": "clear", "props": { "selector": "#name-input" } },
+      { "id": "update-type-name", "type": "type", "props": { "selector": "#name-input", "value": "{{name}}" } },
+      { "id": "update-click-save", "type": "click", "props": { "selector": "#save-button" } },
+      { "id": "update-assert-notification", "type": "should", "props": { "selector": "#notification", "assertion": "contain.text", "value": "updated" } }
+    ]
+  },
+  {
+    "id": "deleteRecord",
+    "name": "Delete Record",
+    "description": "Visit a record's detail page, delete it, confirm, and assert the success notification.",
+    "params": [
+      { "key": "recordId", "label": "Record Id", "type": "text", "required": true }
+    ],
+    "body": [
+      { "id": "delete-visit", "type": "visit", "props": { "url": "/records/{{recordId}}" } },
+      { "id": "delete-click", "type": "click", "props": { "selector": "#delete-button" } },
+      { "id": "delete-confirm", "type": "click", "props": { "selector": "#confirm-delete-button" } },
+      { "id": "delete-assert-notification", "type": "should", "props": { "selector": "#notification", "assertion": "contain.text", "value": "deleted" } }
+    ]
+  },
+  {
+    "id": "gridRowAction",
+    "name": "Grid Row Action",
+    "description": "Find a grid row by index, act on it, and assert the row reflects the change — the get/eq/find/click and get/eq/should traversal pattern.",
+    "params": [
+      { "key": "rowSelector", "label": "Row Selector (e.g. .grid-row)", "type": "text", "required": true },
+      { "key": "rowIndex", "label": "Row Index", "type": "number", "required": true },
+      { "key": "actionSelector", "label": "Action Selector (descendant, e.g. .archive-btn)", "type": "text", "required": true }
+    ],
+    "body": [
+      {
+        "id": "grid-act-chain",
+        "type": "chain",
+        "props": {},
+        "children": [
+          { "id": "grid-act-get", "type": "get", "props": { "selector": "{{rowSelector}}" } },
+          { "id": "grid-act-eq", "type": "eq", "props": { "index": "{{rowIndex}}" } },
+          { "id": "grid-act-find", "type": "find", "props": { "target": "{{actionSelector}}" } },
+          { "id": "grid-act-click", "type": "click", "props": {} }
+        ]
+      },
+      {
+        "id": "grid-assert-chain",
+        "type": "chain",
+        "props": {},
+        "children": [
+          { "id": "grid-assert-get", "type": "get", "props": { "selector": "{{rowSelector}}" } },
+          { "id": "grid-assert-eq", "type": "eq", "props": { "index": "{{rowIndex}}" } },
+          { "id": "grid-assert-should", "type": "should", "props": { "assertion": "be.visible" } }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "notificationValidation",
+    "name": "Notification Validation",
+    "description": "Intercept a request, trigger it, wait on the alias, and assert the resulting notification text — the intercept/as/wait/assert pattern.",
+    "params": [
+      { "key": "url", "label": "Route Matcher (e.g. /api/save)", "type": "text", "required": true },
+      { "key": "triggerSelector", "label": "Trigger Selector (element that fires the request)", "type": "text", "required": true },
+      { "key": "expectedText", "label": "Expected Notification Text", "type": "text", "required": true }
+    ],
+    "body": [
+      {
+        "id": "notif-intercept-chain",
+        "type": "chain",
+        "props": {},
+        "children": [
+          { "id": "notif-intercept", "type": "intercept", "props": { "url": "{{url}}" } },
+          { "id": "notif-as", "type": "as", "props": { "name": "notifRequest" } }
+        ]
+      },
+      { "id": "notif-trigger", "type": "click", "props": { "selector": "{{triggerSelector}}" } },
+      { "id": "notif-wait", "type": "waitAlias", "props": { "alias": "@notifRequest" } },
+      {
+        "id": "notif-assert",
+        "type": "should",
+        "props": { "selector": "#notification", "assertion": "contain.text", "value": "{{expectedText}}" }
+      }
     ]
   }
 ]

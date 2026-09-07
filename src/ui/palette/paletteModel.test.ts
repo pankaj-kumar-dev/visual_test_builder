@@ -306,6 +306,7 @@ describe('bundled registry — the palette the app actually renders', () => {
       'Browser',
       'Data',
       'Control Flow',
+      'Switch',
       'Workflow',
       'Custom Command',
     ]);

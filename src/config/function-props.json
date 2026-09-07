@@ -4,11 +4,13 @@
   ],
 
   "get": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true, "acceptsReference": true }
+    { "key": "selector", "label": "Selector", "type": "text", "required": true, "acceptsReference": true },
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
   ],
   "contains": [
     { "key": "text", "label": "Text", "type": "text", "required": true },
-    { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false, "acceptsReference": true }
+    { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false, "acceptsReference": true },
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
   ],
   "find": [
     {
@@ -19,7 +21,8 @@
       "visibleWhen": { "hasSubject": false },
       "acceptsReference": true
     },
-    { "key": "target", "label": "Descendant Selector", "type": "text", "required": true }
+    { "key": "target", "label": "Descendant Selector", "type": "text", "required": true },
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
   ],
   "first": [
     {

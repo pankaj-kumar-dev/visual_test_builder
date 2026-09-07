@@ -124,6 +124,50 @@ describe('canDropInto — Phase 5 multi-slot composition (if) and control-flow/w
   });
 });
 
+describe('canDropInto — Phase 5 completion: switch/case/default and try', () => {
+  it('rejects any direct drop onto "switch" other than case/default', () => {
+    expect(canDropInto('switch', 'click', reg)).toBe(false);
+    expect(canDropInto('switch', 'if', reg)).toBe(false);
+  });
+
+  it('allows case and default onto "switch"', () => {
+    expect(canDropInto('switch', 'case', reg)).toBe(true);
+    expect(canDropInto('switch', 'default', reg)).toBe(true);
+  });
+
+  it('allows ordinary commands and nested control-flow inside a "case"/"default" body', () => {
+    for (const parent of ['case', 'default']) {
+      for (const type of ['click', 'if', 'forEach', 'switch', 'try', 'within']) {
+        expect(canDropInto(parent, type, reg), `${parent} <- ${type}`).toBe(true);
+      }
+    }
+  });
+
+  it('rejects case/default directly under it/beforeEach/describe — only switch\'s own allowedChildren admits them', () => {
+    for (const parent of ['it', 'beforeEach', 'describe']) {
+      expect(canDropInto(parent, 'case', reg), parent).toBe(false);
+      expect(canDropInto(parent, 'default', reg), parent).toBe(false);
+    }
+  });
+
+  it('allows switch and try under it/beforeEach, same as if/forEach (the @control-flow wildcard)', () => {
+    for (const hook of ['it', 'beforeEach']) {
+      expect(canDropInto(hook, 'switch', reg)).toBe(true);
+      expect(canDropInto(hook, 'try', reg)).toBe(true);
+    }
+  });
+
+  it('rejects any direct drop onto "try" — it only ever holds its own auto-seeded try/catch/finally slots', () => {
+    expect(canDropInto('try', 'click', reg)).toBe(false);
+    expect(canDropInto('try', 'slot', reg)).toBe(false);
+  });
+
+  it('rejects switch/try inside a chain — neither is chain-participable', () => {
+    expect(canDropInto('chain', 'switch', reg, [leaf('get')])).toBe(false);
+    expect(canDropInto('chain', 'try', reg, [leaf('get')])).toBe(false);
+  });
+});
+
 describe('reorderTargetIndex — regression: unaffected by the Phase 2 signature change', () => {
   it('resolves the target index for a sibling being moved earlier', () => {
     const children = [leaf('a'), leaf('b'), leaf('c')];

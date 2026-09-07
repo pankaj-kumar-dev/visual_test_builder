@@ -16,18 +16,27 @@
  */
 
 import { useRef, useState, type ChangeEvent } from 'react';
-import { useAppDispatch, useAppSelector } from './hooks';
-import { loadFlow, redo, setCodeDrawerOpen, undo } from '../state/builderSlice';
+import { useAppDispatch, useAppSelector, useSemanticIssues, useUnresolvedNodes } from './hooks';
+import { loadFlow, redo, setCodeDrawerOpen, setValidationPanelOpen, undo } from '../state/builderSlice';
 import { FlowImportError, parseFlowJson, serializeFlow } from '../state/flowIO';
 
 export function Header() {
   const dispatch = useAppDispatch();
   const isOpen = useAppSelector((state) => state.isCodeDrawerOpen);
+  const isValidationPanelOpen = useAppSelector((state) => state.isValidationPanelOpen);
   const flow = useAppSelector((state) => state.flow);
   const canUndo = useAppSelector((state) => state.history.past.length > 0);
   const canRedo = useAppSelector((state) => state.history.future.length > 0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Phase 5F: the toggle's own badge count, from the same single-source-of-truth
+  // hooks the validation panel itself renders from (app/hooks.ts) — never a
+  // separate tally.
+  const unresolved = useUnresolvedNodes();
+  const semanticIssues = useSemanticIssues();
+  const issueCount =
+    unresolved.length + semanticIssues.filter((issue) => issue.severity === 'error').length;
 
   function handleExport() {
     const blob = new Blob([serializeFlow(flow)], { type: 'application/json' });
@@ -109,9 +118,33 @@ export function Header() {
           data-testid="code-toggle"
           aria-pressed={isOpen}
           aria-label={isOpen ? 'Close generated code drawer' : 'Open generated code drawer'}
-          onClick={() => dispatch(setCodeDrawerOpen(!isOpen))}
+          onClick={() => {
+            // Mutually exclusive with the validation panel — both are the
+            // same 4th-column workspace slot (§ app__workspace--drawer-open),
+            // so at most one is ever open at a time.
+            dispatch(setCodeDrawerOpen(!isOpen));
+            if (!isOpen) dispatch(setValidationPanelOpen(false));
+          }}
         >
           <span aria-hidden="true">{'</>'}</span> Code
+        </button>
+        <button
+          type="button"
+          className={`app-header__code-toggle${isValidationPanelOpen ? ' is-active' : ''}`}
+          data-testid="validation-toggle"
+          aria-pressed={isValidationPanelOpen}
+          aria-label={isValidationPanelOpen ? 'Close validation panel' : 'Open validation panel'}
+          onClick={() => {
+            dispatch(setValidationPanelOpen(!isValidationPanelOpen));
+            if (!isValidationPanelOpen) dispatch(setCodeDrawerOpen(false));
+          }}
+        >
+          Validation
+          {issueCount > 0 && (
+            <span className="app-header__badge" data-testid="validation-badge-count">
+              {issueCount}
+            </span>
+          )}
         </button>
       </div>
 

@@ -89,6 +89,7 @@ function stateFor(tree: FlowNode): AppState {
     selectedNodeId: null,
     generatedCode: processFlow(tree),
     isCodeDrawerOpen: false,
+    isValidationPanelOpen: false,
     collapsedNodeIds: {},
     reusableFlows: [],
     history: { past: [], future: [] },

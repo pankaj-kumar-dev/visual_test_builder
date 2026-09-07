@@ -500,6 +500,7 @@ describe('golden flow — reference producer/consumer (Phase 3: beforeEach fixtu
         label: 'Get',
         kind: 'unknown-reference',
         message: '"@userdata" has no producer anywhere in this flow.',
+        severity: 'error',
       },
     ]);
   });
@@ -779,6 +780,286 @@ describe('golden flow — combined Phase 5 constructs (if containing a reusable-
 
     // Everything resolves and no reusable-flow issues survive — a fully valid
     // combined tree, not merely one that avoids crashing.
+    expect(findUnresolvedNodes(flow)).toEqual([]);
+    expect(findSemanticIssues(flow)).toEqual([]);
+  });
+});
+
+describe('golden flow — Notification Validation reusable flow (Phase 5 completion: reference + Phase 4 network ordering inside an expanded reusable flow)', () => {
+  it('describe > it(flowInvocation(notificationValidation)) — intercept/as/trigger/wait/assert, exact expansion', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Notifications' },
+      children: [
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'shows a save confirmation' },
+          children: [
+            {
+              id: 'invoke-1',
+              type: 'flowInvocation',
+              props: {
+                flowId: 'notificationValidation',
+                url: '/api/save',
+                triggerSelector: '#save-button',
+                expectedText: 'Saved successfully',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(processFlow(flow)).toBe(
+      `describe('Notifications', () => {
+  it('shows a save confirmation', () => {
+    cy.intercept('/api/save').as('notifRequest');
+    cy.get('#save-button').click();
+    cy.wait('@notifRequest');
+    cy.get('#notification').should('contain.text', 'Saved successfully');
+  });
+});`,
+    );
+
+    // The flow's own internal alias production/trigger/consumption is
+    // entirely self-contained — invoking it introduces no reference issue
+    // visible from the outside.
+    expect(findUnresolvedNodes(flow)).toEqual([]);
+    expect(findSemanticIssues(flow)).toEqual([]);
+  });
+});
+
+describe('golden flow — Grid Row Action reusable flow (Phase 5 completion: Phase 2 chain composition inside an expanded reusable flow)', () => {
+  it('describe > it(flowInvocation(gridRowAction)) — get/eq/find/click then get/eq/should, exact expansion', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Grid' },
+      children: [
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'archives a matched row' },
+          children: [
+            {
+              id: 'invoke-1',
+              type: 'flowInvocation',
+              props: { flowId: 'gridRowAction', rowSelector: '.grid-row', rowIndex: '2', actionSelector: '.archive-btn' },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(processFlow(flow)).toBe(
+      "describe('Grid', () => {\n" +
+        "  it('archives a matched row', () => {\n" +
+        "    cy.get('.grid-row')\n" +
+        '      .eq(2)\n' +
+        "      .find('.archive-btn')\n" +
+        '      .click();\n' +
+        "    cy.get('.grid-row')\n" +
+        '      .eq(2)\n' +
+        "      .should('be.visible');\n" +
+        '  });\n' +
+        '});',
+    );
+    expect(findUnresolvedNodes(flow)).toEqual([]);
+  });
+});
+
+describe('golden flow — Switch invoking a reusable flow inside a Case (Phase 5 completion: control-flow composes with reuse)', () => {
+  it('describe > it(switch(role){ case guest: Login invocation; default: log })', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Role routing' },
+      children: [
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'routes based on role' },
+          children: [
+            {
+              id: 'switch-1',
+              type: 'switch',
+              props: { expression: 'role' },
+              children: [
+                {
+                  id: 'case-1',
+                  type: 'case',
+                  props: { value: "'guest'" },
+                  children: [
+                    {
+                      id: 'invoke-1',
+                      type: 'flowInvocation',
+                      props: { flowId: 'login', username: 'guest', password: 'guest123' },
+                    },
+                  ],
+                },
+                {
+                  id: 'default-1',
+                  type: 'default',
+                  props: {},
+                  children: [{ id: 'log-1', type: 'log', props: { message: 'known user' } }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(processFlow(flow)).toBe(
+      `describe('Role routing', () => {
+  it('routes based on role', () => {
+    switch (role) {
+      case 'guest':
+        cy.visit('/login');
+        cy.get('#username').type('guest');
+        cy.get('#password').type('guest123');
+        cy.get('#login-submit').click();
+        break;
+      default:
+        cy.log('known user');
+        break;
+    }
+  });
+});`,
+    );
+    expect(findUnresolvedNodes(flow)).toEqual([]);
+    expect(findSemanticIssues(flow)).toEqual([]);
+  });
+});
+
+describe('golden flow — nested slots: Try/Recover inside an If\'s Then branch (Phase 5 completion: multi-slot composes with multi-slot)', () => {
+  it('describe > it(if(shouldAttempt){ try{click} catch{log} })', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Recovery' },
+      children: [
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'recovers inside a conditional branch' },
+          children: [
+            {
+              id: 'if-1',
+              type: 'if',
+              props: { condition: 'shouldAttempt' },
+              children: [
+                {
+                  id: 'slot-then',
+                  type: 'slot',
+                  props: { name: 'then' },
+                  children: [
+                    {
+                      id: 'try-1',
+                      type: 'try',
+                      props: {},
+                      children: [
+                        {
+                          id: 'slot-try',
+                          type: 'slot',
+                          props: { name: 'try' },
+                          children: [{ id: 'click-1', type: 'click', props: { selector: '.risky' } }],
+                        },
+                        {
+                          id: 'slot-catch',
+                          type: 'slot',
+                          props: { name: 'catch' },
+                          children: [{ id: 'log-1', type: 'log', props: { message: 'recovered' } }],
+                        },
+                        { id: 'slot-finally', type: 'slot', props: { name: 'finally' }, children: [] },
+                      ],
+                    },
+                  ],
+                },
+                { id: 'slot-else', type: 'slot', props: { name: 'else' }, children: [] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(processFlow(flow)).toBe(
+      `describe('Recovery', () => {
+  it('recovers inside a conditional branch', () => {
+    if (shouldAttempt) {
+      cy.on('fail', (err) => {
+        cy.log('recovered');
+        return false;
+      });
+      {
+        cy.get('.risky').click();
+      }
+    }
+  });
+});`,
+    );
+    expect(findUnresolvedNodes(flow)).toEqual([]);
+  });
+});
+
+describe('golden flow — hooks + references + a reusable-flow invocation as the trigger (Phase 5 completion: Phase 3/4 reference scoping sees through a reuse invocation)', () => {
+  it('beforeEach(intercept.as) > it(invoke Search, then wait on the hook\'s alias)', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Account' },
+      children: [
+        {
+          id: 'before-1',
+          type: 'beforeEach',
+          props: {},
+          children: [
+            {
+              id: 'chain-1',
+              type: 'chain',
+              props: {},
+              children: [
+                { id: 'intercept-1', type: 'intercept', props: { url: '/api/profile' } },
+                { id: 'as-1', type: 'as', props: { name: 'profile' } },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'it-1',
+          type: 'it',
+          props: { label: 'loads the profile after searching' },
+          children: [
+            { id: 'invoke-1', type: 'flowInvocation', props: { flowId: 'search', query: 'Widget' } },
+            { id: 'wait-1', type: 'waitAlias', props: { alias: '@profile' } },
+          ],
+        },
+      ],
+    };
+
+    expect(processFlow(flow)).toBe(
+      `describe('Account', () => {
+  beforeEach(() => {
+    cy.intercept('/api/profile').as('profile');
+  });
+  it('loads the profile after searching', () => {
+    cy.get('#search-input').type('Widget');
+    cy.get('#search-button').click();
+    cy.get('#search-results').should('be.visible');
+    cy.wait('@profile');
+  });
+});`,
+    );
+
+    // The critical assertion: the Search invocation's own internal click
+    // counts as the "trigger" the outer waitAlias needs, even though that
+    // click lives inside the reusable flow's expanded (not literally
+    // authored) body — `engine/references.ts`'s `reuseSubtreeContainsTrigger`
+    // is what makes this resolve correctly rather than a false-positive
+    // "reference-used-without-trigger" warning.
     expect(findUnresolvedNodes(flow)).toEqual([]);
     expect(findSemanticIssues(flow)).toEqual([]);
   });

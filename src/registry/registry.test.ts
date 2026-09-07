@@ -156,8 +156,8 @@ describe('allowsChildType (Phase 1, "configuration scaling")', () => {
 describe('bundled registry — structural nodes (Phase 1)', () => {
   const reg = getRegistry();
 
-  it('exposes all fifteen structural blocks (incl. Phase 2\'s chain/within/then/each/session, Phase 5\'s slot/if/forEach/flowInvocation)', () => {
-    expect(reg.getAllBlocks()).toHaveLength(15);
+  it('exposes all nineteen structural blocks (incl. Phase 2\'s chain/within/then/each/session, Phase 5\'s slot/if/forEach/flowInvocation, and Phase 5 completion\'s switch/case/default/try)', () => {
+    expect(reg.getAllBlocks()).toHaveLength(19);
   });
 
   it.each(['describe', 'it', 'beforeAll', 'afterAll', 'beforeEach', 'afterEach'])(
@@ -290,6 +290,7 @@ describe('bundled registry — palette taxonomy (Scalable Builder UI)', () => {
       'browser',
       'data',
       'control-flow',
+      'switch',
       'validation',
       'workflow',
       'custom-command',
@@ -740,6 +741,80 @@ describe('bundled registry — Phase 4 network (intercept/waitAlias/request)', (
       const def = reg.getBlock(type)!;
       expect(reg.allowsChildType(def, 'intercept'), `${type} -> intercept`).toBe(true);
       expect(reg.allowsChildType(def, 'waitAlias'), `${type} -> waitAlias`).toBe(true);
+    }
+  });
+});
+
+describe('bundled registry — Phase 5 completion: switch/case/default, try, and timeout config', () => {
+  const reg = getRegistry();
+
+  it('switch, case, default and try are all present with a codeTemplate', () => {
+    for (const type of ['switch', 'case', 'default', 'try']) {
+      expect(reg.getBlock(type)?.codeTemplate, type).toBeTruthy();
+    }
+  });
+
+  it('switch declares min-1/max-1 childCardinality for case/default; case and default declare none', () => {
+    expect(reg.getBlock('switch')?.childCardinality).toEqual({
+      case: { min: 1, label: 'Case' },
+      default: { max: 1, label: 'Default' },
+    });
+    expect(reg.getBlock('case')?.childCardinality).toBeUndefined();
+    expect(reg.getBlock('default')?.childCardinality).toBeUndefined();
+  });
+
+  it('try declares try/catch/finally slots, with try and catch required', () => {
+    expect(reg.getBlock('try')?.slots).toEqual(['try', 'catch', 'finally']);
+    expect(reg.getBlock('try')?.requiredSlots).toEqual(['try', 'catch']);
+  });
+
+  it('switch, case, default and try are none of them chain-participable (no chainRole)', () => {
+    for (const type of ['switch', 'case', 'default', 'try']) {
+      expect(reg.getBlock(type)?.chainRole, type).toBeUndefined();
+    }
+  });
+
+  it("it/hooks/blocks admit 'switch' and 'try' via the existing @control-flow wildcard — no new wildcard was introduced", () => {
+    // `chain` deliberately does NOT admit @control-flow (same as the
+    // pre-existing `if`/`forEach`) — a chain composes one Cypress subject
+    // expression, and none of these are chain-participable (no `chainRole`).
+    for (const type of ['it', 'beforeAll', 'afterAll', 'beforeEach', 'afterEach', 'within', 'then', 'each', 'session', 'forEach']) {
+      const def = reg.getBlock(type)!;
+      expect(reg.allowsChildType(def, 'switch'), `${type} -> switch`).toBe(true);
+      expect(reg.allowsChildType(def, 'try'), `${type} -> try`).toBe(true);
+    }
+    expect(reg.allowsChildType(reg.getBlock('chain')!, 'switch')).toBe(false);
+    expect(reg.allowsChildType(reg.getBlock('chain')!, 'try')).toBe(false);
+  });
+
+  it("'case' and 'default' are reachable ONLY through switch's own explicit allowedChildren — never via a group wildcard used elsewhere", () => {
+    // This is the deliberate design choice, not an oversight: case/default use
+    // a "switch"-only group precisely so they can never be dropped as a bare,
+    // switch-less statement (which would be invalid JavaScript) into any of
+    // the containers that admit @control-flow.
+    const switchDef = reg.getBlock('switch')!;
+    expect(reg.allowsChildType(switchDef, 'case')).toBe(true);
+    expect(reg.allowsChildType(switchDef, 'default')).toBe(true);
+
+    for (const type of ['it', 'beforeAll', 'afterAll', 'beforeEach', 'afterEach', 'within', 'then', 'each', 'session', 'forEach', 'chain']) {
+      const def = reg.getBlock(type)!;
+      expect(reg.allowsChildType(def, 'case'), `${type} -> case`).toBe(false);
+      expect(reg.allowsChildType(def, 'default'), `${type} -> default`).toBe(false);
+    }
+  });
+
+  it('switch itself only allows case/default as children — not arbitrary commands', () => {
+    const switchDef = reg.getBlock('switch')!;
+    expect(reg.allowsChildType(switchDef, 'click')).toBe(false);
+    expect(reg.allowsChildType(switchDef, 'if')).toBe(false);
+  });
+
+  it('get/contains/find gained an optional numeric "timeout" prop (Phase 5D: Cypress-native command retry configuration)', () => {
+    for (const type of ['get', 'contains', 'find']) {
+      const prop = reg.getProps(type).find((p) => p.key === 'timeout');
+      expect(prop, type).toBeDefined();
+      expect(prop?.type, type).toBe('number');
+      expect(prop?.required, type).toBe(false);
     }
   });
 });

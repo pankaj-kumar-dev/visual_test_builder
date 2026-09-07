@@ -70,6 +70,7 @@ body {
 
 .app-header__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -801,6 +802,116 @@ body {
 
 .code-drawer__warning--semantic .code-drawer__warning-item:hover {
   background: #fce7f6;
+}
+
+/* Dedicated validation panel (Phase 5F) — reuses .code-drawer's outer layout
+   (grid sizing, header, scrollable body, responsive breakpoints, below); only
+   the summary counts and the per-issue list styling below are new. */
+.app-header__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.validation-panel__summary {
+  flex: none;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.validation-panel__count {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--panel-muted);
+  color: #667085;
+}
+
+.validation-panel__count--error.has-issues {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.validation-panel__count--warning.has-issues {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.validation-panel__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #667085;
+}
+
+.validation-panel__list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.validation-panel__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.validation-panel__item--error {
+  border-color: var(--warning-border, #f0b4b4);
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.validation-panel__item--error:hover {
+  background: #fee4e2;
+}
+
+.validation-panel__item--warning {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.validation-panel__item--warning:hover {
+  background: var(--warning-bg-strong);
+}
+
+.validation-panel__item-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.validation-panel__item-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.validation-panel__item-message {
+  font-size: 0.78rem;
+  opacity: 0.9;
 }
 
 .startup-error {

@@ -115,11 +115,11 @@ describe('resolveSchema — the four contexts from the brief', () => {
   const at = (id: string) => flow.children![0].children![0].children!.find((n) => n.id === id)!;
 
   it('root query (chain > get): the selector is the subject source, so it is shown', () => {
-    expect(keysOf('get', at('get-1'), flow)).toEqual(['selector']);
+    expect(keysOf('get', at('get-1'), flow)).toEqual(['selector', 'timeout']);
   });
 
   it('subject query (chain > get > find): only what Find itself needs', () => {
-    expect(keysOf('find', at('find-1'), flow)).toEqual(['target']);
+    expect(keysOf('find', at('find-1'), flow)).toEqual(['target', 'timeout']);
   });
 
   it('index query (chain > … > eq): the index, not another selector', () => {

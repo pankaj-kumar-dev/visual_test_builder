@@ -283,6 +283,32 @@ export interface StructuralNodeDef extends PaletteMetadata {
    * aliases can't have been available during it.
    */
   producesReferencesForSiblings?: boolean;
+  /**
+   * Phase 5 completion: which of this node's *declared* `slots` must hold at
+   * least one child to be meaningful — e.g. `try`'s `try`/`catch` (a recovery
+   * construct with nothing to attempt, or nothing to do on failure, is
+   * pointless), while `finally` stays optional. Same "visible warning, not a
+   * hard generation error" rule `childComposition: 'block'`'s empty-body check
+   * already uses (engine/unresolved.ts) — reused generically here for any
+   * *named* slot rather than an unnamed block body, via the same
+   * `slotHasContent` (engine/slots.ts) the generator itself reads. Omitted
+   * (the default) means no declared slot is required — `if`'s `then`/`else`
+   * keep their original Phase 5 behavior unchanged.
+   */
+  requiredSlots?: string[];
+  /**
+   * Phase 5 completion: bounds on how many *ordinary* children of a given
+   * `type` this node may have — distinct from `slots` (which grows one fixed
+   * wrapper per declared name): this instead constrains an unbounded,
+   * ordinarily-composed child list, e.g. `switch` needing at least one `case`
+   * and at most one `default`, in any order, with no fixed count. Keyed by
+   * the child's registry `type`; `label` is the human-readable name used in
+   * the reported message (falls back to the type string). Generic over any
+   * future construct with the same "N of this child type" shape —
+   * engine/unresolved.ts's cardinality check is the one place that
+   * interprets it, never a `node.type === 'switch'` check.
+   */
+  childCardinality?: Record<string, { min?: number; max?: number; label?: string }>;
 }
 
 /**
@@ -385,6 +411,16 @@ export interface AppState {
    * the app's UI state (`selectedNodeId` already sets this precedent).
    */
   isCodeDrawerOpen: boolean;
+  /**
+   * Whether the dedicated validation panel is open (Phase 5F). Same "pure UI
+   * state alongside the rest" precedent as `isCodeDrawerOpen` — independent of
+   * it, so a user can read generated code and validation results in either
+   * order, or both at once. The panel renders `findUnresolvedNodes` /
+   * `findSemanticIssues` results (via `app/hooks.ts`) exactly as the code
+   * drawer's own warning sections already do; this flag only controls whether
+   * that same, single source of truth is *additionally* shown in its own panel.
+   */
+  isValidationPanelOpen: boolean;
   /**
    * Which tree nodes are collapsed on the canvas, keyed by stable node id (never
    * by index, so reordering can't transfer one node's state to another). Pure UI

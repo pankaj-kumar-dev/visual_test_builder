@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import reducer, { addNode, deleteNode, updateProp } from './builderSlice';
-import type { AppState } from '../domain/types';
+import type { AppState, FlowNode } from '../domain/types';
 
 function initial(): AppState {
   return reducer(undefined, { type: '@@INIT/control-flow-test' });
@@ -75,16 +75,44 @@ describe('addNode — Phase 5 multi-slot auto-seeding', () => {
 });
 
 describe('initial state — Phase 5 reusable-flow library', () => {
-  it('is seeded with the bundled Login and Search starter flows', () => {
+  it('is seeded with the full bundled starter library (Phase 5 completion: expanded beyond Login/Search)', () => {
     const state = initial();
-    expect(state.reusableFlows.map((f) => f.id).sort()).toEqual(['login', 'search']);
+    expect(state.reusableFlows.map((f) => f.id).sort()).toEqual([
+      'createRecord',
+      'deleteRecord',
+      'gridRowAction',
+      'login',
+      'logout',
+      'notificationValidation',
+      'readRecord',
+      'search',
+      'updateRecord',
+    ]);
   });
 
-  it('every starter flow declares at least one parameter and a non-empty body', () => {
+  it('every starter flow declares a non-empty body; parameters are used only where they add real reuse value', () => {
     const state = initial();
     for (const flow of state.reusableFlows) {
-      expect(flow.params.length, flow.id).toBeGreaterThan(0);
+      // A flow like Logout has nothing to parameterize — the "no params" case
+      // is deliberate, not an oversight, so this no longer requires >0 params.
+      expect(flow.params.length, flow.id).toBeGreaterThanOrEqual(0);
       expect(flow.body.length, flow.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('every declared parameter is actually referenced somewhere in its own body (no dead parameters)', () => {
+    const state = initial();
+    const usesToken = (value: string, key: string) => value.includes(`{{${key}}}`);
+    const walk = (nodes: FlowNode[], key: string): boolean =>
+      nodes.some(
+        (n) =>
+          Object.values(n.props ?? {}).some((v) => usesToken(v, key)) ||
+          (n.children ? walk(n.children, key) : false),
+      );
+    for (const flow of state.reusableFlows) {
+      for (const param of flow.params) {
+        expect(walk(flow.body, param.key), `${flow.id}.${param.key}`).toBe(true);
+      }
     }
   });
 });

@@ -50,7 +50,7 @@ describe('Palette', () => {
           .map((el) => (el.textContent ?? '').replace(/[^A-Za-z ]/g, '').trim());
         expect(labels).to.deep.equal([
           'Structural', 'Traversal', 'Action', 'Assertion', 'Utility', 'Network', 'Browser', 'Data',
-          'Control Flow', 'Workflow', 'Custom Command',
+          'Control Flow', 'Switch', 'Workflow', 'Custom Command',
         ]);
       });
     });

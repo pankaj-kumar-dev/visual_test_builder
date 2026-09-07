@@ -56,6 +56,7 @@ function stateWith(overrides: Partial<AppState> = {}): AppState {
     selectedNodeId: null,
     generatedCode: processFlow(tree),
     isCodeDrawerOpen: false,
+    isValidationPanelOpen: false,
     collapsedNodeIds: {},
     reusableFlows: [],
     history: { past: [], future: [] },

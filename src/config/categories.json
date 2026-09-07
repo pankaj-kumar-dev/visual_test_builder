@@ -64,6 +64,11 @@
     "description": "Conditionals, loops, and retries."
   },
   {
+    "id": "switch",
+    "label": "Switch",
+    "description": "Case/Default branches — only ever valid directly inside a Switch node."
+  },
+  {
     "id": "validation",
     "label": "Validation",
     "description": "Reusable validation building blocks."

@@ -203,4 +203,62 @@ describe('serializeFlow / parseFlowJson round trip', () => {
     };
     expect(parseFlowJson(serializeFlow(flow))).toEqual(flow);
   });
+
+  it('round-trips a flow containing Phase 5 completion nodes (switch/case/default/try) unchanged', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Suite' },
+      children: [
+        {
+          id: 'switch-1',
+          type: 'switch',
+          props: { expression: 'role' },
+          children: [
+            { id: 'case-1', type: 'case', props: { value: "'admin'" }, children: [{ id: 'log-1', type: 'log', props: { message: 'hi' } }] },
+            { id: 'default-1', type: 'default', props: {}, children: [] },
+          ],
+        },
+        {
+          id: 'try-1',
+          type: 'try',
+          props: {},
+          children: [
+            { id: 'slot-try', type: 'slot', props: { name: 'try' }, children: [{ id: 'click-1', type: 'click', props: { selector: '.x' } }] },
+            { id: 'slot-catch', type: 'slot', props: { name: 'catch' }, children: [] },
+            { id: 'slot-finally', type: 'slot', props: { name: 'finally' }, children: [] },
+          ],
+        },
+      ],
+    };
+    expect(parseFlowJson(serializeFlow(flow))).toEqual(flow);
+  });
+
+  it('round-trips a flowInvocation of one of the newly expanded starter flows unchanged', () => {
+    const flow: FlowNode = {
+      id: 'root',
+      type: 'describe',
+      props: { label: 'Suite' },
+      children: [
+        {
+          id: 'invoke-1',
+          type: 'flowInvocation',
+          props: { flowId: 'gridRowAction', rowSelector: '.grid-row', rowIndex: '2', actionSelector: '.archive-btn' },
+        },
+      ],
+    };
+    expect(parseFlowJson(serializeFlow(flow))).toEqual(flow);
+  });
+
+  it('rejects the whole import when an unknown type is nested inside an otherwise-valid switch/case tree (no partial import)', () => {
+    const brokenRaw = JSON.stringify({
+      id: 'root',
+      type: 'switch',
+      props: { expression: 'x' },
+      children: [
+        { id: 'case-1', type: 'case', props: { value: '1' }, children: [{ id: 'ghost-1', type: 'not-a-real-type', props: {} }] },
+      ],
+    });
+    expect(() => parseFlowJson(brokenRaw)).toThrow(FlowImportError);
+  });
 });

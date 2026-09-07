@@ -42,7 +42,7 @@ import { getRegistry } from '../registry';
 import type { Registry } from '../registry';
 import { getSchema } from './nodeContext';
 import { isValidReferenceName } from './propValue';
-import { findFlowCycle, findFlowDef } from './reusableFlows';
+import { expandInvocation, findFlowCycle, findFlowDef } from './reusableFlows';
 
 /** Whether `node` defines a reference test-scope boundary (registry-driven — see `StructuralNodeDef.referenceScopeBoundary`; never a `node.type` check). */
 function isScopeBoundary(node: FlowNode, reg: Registry): boolean {
@@ -219,14 +219,49 @@ function isTrigger(node: FlowNode, reg: Registry): boolean {
 }
 
 /**
- * For each node, which reference names have had a trigger (`isTrigger`) occur
- * since their most recent production, in plain document (pre-order) order —
- * the same traversal shape as `computeGlobalOrderProduced`, tracking one more
- * fact per name. Used only by the `requiresTriggerBeforeUse` check below.
+ * Phase 5 completion: whether a reuse-composition node's *expanded* body
+ * contains a trigger anywhere within it. Needed because
+ * `computeTriggeredSinceProduction`'s walk only visits the real Flow JSON
+ * tree, and a `flowInvocation` node has no real `children` there — so a
+ * trigger action authored *inside* a reusable flow (e.g. the click at the
+ * heart of the bundled `search`/`login` starters) would otherwise be
+ * invisible from the outer scope, and a `waitAlias` right after invoking
+ * such a flow would be wrongly flagged as untriggered. `visiting` guards
+ * against a cyclic reusable-flow reference recursing forever, the same
+ * defensive shape `engine/processFlow.ts`'s own expansion already uses.
+ */
+function reuseSubtreeContainsTrigger(
+  node: FlowNode,
+  reg: Registry,
+  flows: ReusableFlowDef[],
+  visiting: readonly string[],
+): boolean {
+  const def = reg.getBlock(node.type) ?? reg.getFunction(node.type);
+  if (!def || !('childComposition' in def) || def.childComposition !== 'reuse') return false;
+  const flowId = node.props?.flowId;
+  if (!flowId || visiting.includes(flowId)) return false;
+
+  const expanded = expandInvocation(node, flows) ?? [];
+  const nextVisiting = [...visiting, flowId];
+  const scan = (n: FlowNode): boolean =>
+    isTrigger(n, reg) ||
+    reuseSubtreeContainsTrigger(n, reg, flows, nextVisiting) ||
+    (n.children ?? []).some(scan);
+  return expanded.some(scan);
+}
+
+/**
+ * For each node, which reference names have had a trigger (`isTrigger`, or —
+ * Phase 5 completion — a reuse invocation whose expanded body contains one)
+ * occur since their most recent production, in plain document (pre-order)
+ * order — the same traversal shape as `computeGlobalOrderProduced`, tracking
+ * one more fact per name. Used only by the `requiresTriggerBeforeUse` check
+ * below.
  */
 function computeTriggeredSinceProduction(
   root: FlowNode,
   reg: Registry,
+  flows: ReusableFlowDef[],
 ): Map<string, Set<string>> {
   const triggeredAt = new Map<string, Set<string>>();
 
@@ -244,7 +279,7 @@ function computeTriggeredSinceProduction(
       withoutIt.delete(producedName);
       nextTriggered = withoutIt;
     }
-    if (isTrigger(node, reg)) {
+    if (isTrigger(node, reg) || reuseSubtreeContainsTrigger(node, reg, flows, [])) {
       nextTriggered = union(nextTriggered, nextProduced);
     }
 
@@ -269,12 +304,37 @@ export type SemanticIssueKind =
   | 'unknown-reusable-flow'
   | 'cyclic-reusable-flow';
 
+/**
+ * Phase 5F: how seriously the validation panel should treat an issue kind —
+ * a fixed, one-line lookup (below), not a per-issue judgment call, so the
+ * same kind is always the same severity everywhere it's reported. `'error'`
+ * means the generated code is broken or definitely not what was intended
+ * (an alias that resolves to nothing, a cycle, an unknown flow); `'warning'`
+ * means the code is syntactically fine but a real Cypress footgun is likely
+ * (`reference-used-without-trigger` — the classic "the intercept never saw a
+ * matching request" flake). The UI only reads this field; it never
+ * re-derives severity from `kind` itself (Phase 5G's "one validation source
+ * of truth").
+ */
+export type SemanticIssueSeverity = 'error' | 'warning';
+
+const SEVERITY_BY_KIND: Record<SemanticIssueKind, SemanticIssueSeverity> = {
+  'unknown-reference': 'error',
+  'reference-before-producer': 'error',
+  'reference-out-of-scope': 'error',
+  'duplicate-reference': 'error',
+  'reference-used-without-trigger': 'warning',
+  'unknown-reusable-flow': 'error',
+  'cyclic-reusable-flow': 'error',
+};
+
 export interface SemanticIssue {
   id: string;
   type: string;
   label: string;
   kind: SemanticIssueKind;
   message: string;
+  severity: SemanticIssueSeverity;
 }
 
 /**
@@ -311,9 +371,14 @@ export function findSemanticIssues(
   const scopes = computeReferenceScopes(root, reg);
   const everProduced = collectAllProduced(root, reg);
   const before = computeGlobalOrderProduced(root, reg);
-  const triggeredSince = computeTriggeredSinceProduction(root, reg);
+  const triggeredSince = computeTriggeredSinceProduction(root, reg, flows);
 
   const issues: SemanticIssue[] = [];
+  // Every push goes through here so `severity` can never be hand-typed
+  // (and therefore never drift) out of step with `SEVERITY_BY_KIND`.
+  const push = (issue: Omit<SemanticIssue, 'severity'>) => {
+    issues.push({ ...issue, severity: SEVERITY_BY_KIND[issue.kind] });
+  };
 
   const walk = (node: FlowNode) => {
     const def = reg.getBlock(node.type) ?? reg.getFunction(node.type);
@@ -334,7 +399,7 @@ export function findSemanticIssues(
         const flowDef = findFlowDef(flowId, flows);
         if (!flowDef) {
           if (flowId) {
-            issues.push({
+            push({
               id: node.id,
               type: node.type,
               label: def.label,
@@ -345,7 +410,7 @@ export function findSemanticIssues(
         } else {
           const cycle = findFlowCycle(flowDef.id, flows);
           if (cycle) {
-            issues.push({
+            push({
               id: node.id,
               type: node.type,
               label: def.label,
@@ -361,7 +426,7 @@ export function findSemanticIssues(
       for (const name of referencesConsumedBy(node)) {
         if (inScope.has(name)) {
           if (requiresTrigger && !(triggeredSince.get(node.id)?.has(name) ?? false)) {
-            issues.push({
+            push({
               id: node.id,
               type: node.type,
               label: def.label,
@@ -373,7 +438,7 @@ export function findSemanticIssues(
         }
         const beforeGlobally = before.get(node.id)?.has(name) ?? false;
         if (!everProduced.has(name)) {
-          issues.push({
+          push({
             id: node.id,
             type: node.type,
             label: def.label,
@@ -381,7 +446,7 @@ export function findSemanticIssues(
             message: `"@${name}" has no producer anywhere in this flow.`,
           });
         } else if (!beforeGlobally) {
-          issues.push({
+          push({
             id: node.id,
             type: node.type,
             label: def.label,
@@ -389,7 +454,7 @@ export function findSemanticIssues(
             message: `"@${name}" is used before it is produced.`,
           });
         } else {
-          issues.push({
+          push({
             id: node.id,
             type: node.type,
             label: def.label,
@@ -401,7 +466,7 @@ export function findSemanticIssues(
 
       const produced = referenceProducedBy(node, reg);
       if (produced && (scopes.get(node.id) ?? new Set()).has(produced)) {
-        issues.push({
+        push({
           id: node.id,
           type: node.type,
           label: def.label,
