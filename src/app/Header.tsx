@@ -1,18 +1,8 @@
 /**
- * Application header / toolbar (Phase 2 UI; Phase 1: import/export).
+ * Application header / whole-flow toolbar.
  *
- * Single responsibility: the app title plus the toolbar actions that act on the
- * whole flow rather than a single node — the code-drawer toggle, and Flow JSON
- * export/import (HLD §15 "Export", §20 "Flow JSON Import/Export"). The drawer's
- * open/closed state lives in Redux (`state.isCodeDrawerOpen`) alongside the app's
- * other UI state, not as component-local state, so any part of the app can react
- * to it consistently.
- *
- * Export/import are client-side only (HLD §15: "a client-side file download, no
- * server involved") — a Blob URL for export, `FileReader` for import — and both
- * go through `state/flowIO.ts`'s shared serialize/validate so an imported file
- * is held to exactly the rule described there. An invalid import is rejected in
- * full (HLD §19) and reported inline rather than partially applied.
+ * Keeps flow-level actions together while the workspace below stays focused on
+ * building, inspecting, and validating the current scenario.
  */
 
 import { useRef, useState, type ChangeEvent } from 'react';
@@ -30,9 +20,6 @@ export function Header() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Phase 5F: the toggle's own badge count, from the same single-source-of-truth
-  // hooks the validation panel itself renders from (app/hooks.ts) — never a
-  // separate tally.
   const unresolved = useUnresolvedNodes();
   const semanticIssues = useSemanticIssues();
   const issueCount =
@@ -54,7 +41,7 @@ export function Header() {
 
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    event.target.value = ''; // allow re-selecting the same file next time
+    event.target.value = '';
     if (!file) return;
 
     try {
@@ -69,90 +56,54 @@ export function Header() {
 
   return (
     <header className="app-header">
-      <span className="app-header__title">Visual Test Builder</span>
-
-      <div className="app-header__actions">
-        <button
-          type="button"
-          className="app-header__action"
-          data-testid="undo-button"
-          disabled={!canUndo}
-          aria-label="Undo"
-          onClick={() => dispatch(undo())}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          className="app-header__action"
-          data-testid="redo-button"
-          disabled={!canRedo}
-          aria-label="Redo"
-          onClick={() => dispatch(redo())}
-        >
-          Redo
-        </button>
-        <button type="button" className="app-header__action" data-testid="export-flow" onClick={handleExport}>
-          Export
-        </button>
-        <button
-          type="button"
-          className="app-header__action"
-          data-testid="import-flow"
-          onClick={handleImportClick}
-        >
-          Import
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          data-testid="import-flow-input"
-          className="app-header__file-input"
-          onChange={handleFileSelected}
-        />
-
-        <button
-          type="button"
-          className={`app-header__code-toggle${isOpen ? ' is-active' : ''}`}
-          data-testid="code-toggle"
-          aria-pressed={isOpen}
-          aria-label={isOpen ? 'Close generated code drawer' : 'Open generated code drawer'}
-          onClick={() => {
-            // Mutually exclusive with the validation panel — both are the
-            // same 4th-column workspace slot (§ app__workspace--drawer-open),
-            // so at most one is ever open at a time.
-            dispatch(setCodeDrawerOpen(!isOpen));
-            if (!isOpen) dispatch(setValidationPanelOpen(false));
-          }}
-        >
-          <span aria-hidden="true">{'</>'}</span> Code
-        </button>
-        <button
-          type="button"
-          className={`app-header__code-toggle${isValidationPanelOpen ? ' is-active' : ''}`}
-          data-testid="validation-toggle"
-          aria-pressed={isValidationPanelOpen}
-          aria-label={isValidationPanelOpen ? 'Close validation panel' : 'Open validation panel'}
-          onClick={() => {
-            dispatch(setValidationPanelOpen(!isValidationPanelOpen));
-            if (!isValidationPanelOpen) dispatch(setCodeDrawerOpen(false));
-          }}
-        >
-          Validation
-          {issueCount > 0 && (
-            <span className="app-header__badge" data-testid="validation-badge-count">
-              {issueCount}
-            </span>
-          )}
-        </button>
+      <div className="app-header__brand">
+        <span className="app-header__logo" aria-hidden="true">VT</span>
+        <div className="app-header__identity">
+          <strong className="app-header__title">Visual Test Builder</strong>
+          <span className="app-header__subtitle">Cypress test authoring</span>
+        </div>
       </div>
 
-      {importError && (
-        <p className="app-header__import-error" role="alert" data-testid="import-error">
-          {importError}
-        </p>
-      )}
+      <div className="app-header__flow">
+        <span className="app-header__flow-label">CURRENT FLOW</span>
+        <strong>Untitled test scenario</strong>
+        <span className="app-header__flow-status">Local draft</span>
+      </div>
+
+      <div className="app-header__actions">
+        <div className="app-header__group" aria-label="History">
+          <button type="button" className="app-header__icon-action" data-testid="undo-button" disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl/Cmd + Z)" onClick={() => dispatch(undo())}>
+            <span aria-hidden="true">↶</span><span className="app-header__button-label">Undo</span>
+          </button>
+          <button type="button" className="app-header__icon-action" data-testid="redo-button" disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl/Cmd + Shift + Z)" onClick={() => dispatch(redo())}>
+            <span aria-hidden="true">↷</span><span className="app-header__button-label">Redo</span>
+          </button>
+        </div>
+
+        <div className="app-header__group" aria-label="Flow file actions">
+          <button type="button" className="app-header__action" data-testid="export-flow" onClick={handleExport}>Export</button>
+          <button type="button" className="app-header__action" data-testid="import-flow" onClick={handleImportClick}>Import</button>
+          <input ref={fileInputRef} type="file" accept="application/json" data-testid="import-flow-input" className="app-header__file-input" onChange={handleFileSelected} />
+        </div>
+
+        <div className="app-header__group app-header__group--primary" aria-label="Build tools">
+          <button type="button" className={`app-header__toggle${isValidationPanelOpen ? ' is-active' : ''}`} data-testid="validation-toggle" aria-pressed={isValidationPanelOpen} aria-label={isValidationPanelOpen ? 'Close validation panel' : 'Open validation panel'} onClick={() => {
+            dispatch(setValidationPanelOpen(!isValidationPanelOpen));
+            if (!isValidationPanelOpen) dispatch(setCodeDrawerOpen(false));
+          }}>
+            <span className="app-header__toggle-icon" aria-hidden="true">✓</span>Validate
+            {issueCount > 0 && <span className="app-header__badge" data-testid="validation-badge-count">{issueCount}</span>}
+          </button>
+          <button type="button" className={`app-header__toggle app-header__toggle--code${isOpen ? ' is-active' : ''}`} data-testid="code-toggle" aria-pressed={isOpen} aria-label={isOpen ? 'Close generated code drawer' : 'Open generated code drawer'} onClick={() => {
+            dispatch(setCodeDrawerOpen(!isOpen));
+            if (!isOpen) dispatch(setValidationPanelOpen(false));
+          }}>
+            <span className="app-header__toggle-icon" aria-hidden="true">&lt;/&gt;</span>Code
+          </button>
+        </div>
+      </div>
+
+      {importError && <p className="app-header__import-error" role="alert" data-testid="import-error">{importError}</p>}
     </header>
   );
 }
