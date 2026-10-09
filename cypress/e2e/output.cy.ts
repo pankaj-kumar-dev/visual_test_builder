@@ -16,7 +16,7 @@ const EXPECTED = `describe('Login Suite', () => {
 
 describe('Code drawer', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     buildLoginFlow();
     openCodeDrawer();
   });
@@ -35,7 +35,8 @@ describe('Code drawer', () => {
   context('SM-10 — copy the generated code', () => {
     it('writes the code to the clipboard and shows feedback', () => {
       cy.window().then((win) => {
-        cy.stub(win.navigator.clipboard, 'writeText').resolves().as('writeText');
+        const stub = cy.stub(win.navigator.clipboard, 'writeText').resolves();
+        cy.wrap(stub).as('writeText');
       });
 
       cy.get('[data-testid=copy-button]').click();

@@ -20,6 +20,20 @@
 
 import { useAppDispatch, useBuildResult, useSemanticIssues, useUnresolvedNodes } from '../../app/hooks';
 import { revealNode, setBuildPanelOpen, setValidationPanelOpen } from '../../state/builderSlice';
+import type { BuiltSpec } from '../../engine/buildSpec';
+
+/**
+ * The real, drop-in `support/commands.ts`: the ambient-type augmentation
+ * ahead of the runtime registrations, with a trailing `export {}` — without
+ * it the file is a global script, not a module, and `declare global` is
+ * rejected by a real `tsc` run (see `engine/processFlow.ts`'s
+ * `generateReusableFlowCommandType` and this project's own
+ * `cypress/support/commands.ts`, which needs the same trailing `export {}`
+ * for the same reason).
+ */
+function commandsFileContent(built: BuiltSpec): string {
+  return `${built.commandTypesCode}\n\n${built.commandsCode}\n\nexport {};`;
+}
 
 function download(fileName: string, content: string) {
   const blob = new Blob([content], { type: 'text/plain' });
@@ -154,12 +168,16 @@ export function BuildPanel() {
               <section className="build-panel__section">
                 <div className="build-panel__file-header">
                   <h3 className="build-panel__section-title">support/commands.ts</h3>
-                  <button type="button" className="build-panel__file-action" onClick={() => download('commands.ts', result.built.commandsCode)}>
+                  <button
+                    type="button"
+                    className="build-panel__file-action"
+                    onClick={() => download('commands.ts', commandsFileContent(result.built))}
+                  >
                     Download
                   </button>
                 </div>
                 <pre className="code-drawer__code build-panel__code" data-testid="build-panel-commands">
-                  <code>{result.built.commandsCode}</code>
+                  <code>{commandsFileContent(result.built)}</code>
                 </pre>
               </section>
             )}

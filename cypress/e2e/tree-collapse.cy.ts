@@ -36,7 +36,7 @@ function buildTwoCaseFlow(): void {
 
 describe('Tree collapse', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     buildTwoCaseFlow();
   });
 
@@ -223,7 +223,7 @@ describe('Tree collapse — a realistic larger flow (§38)', () => {
   }
 
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     selectNode('Describe Block');
     setProp('label', 'User Management');

@@ -9,7 +9,7 @@ import { addChild, addRoot, openCodeDrawer, selectNode, setProp } from '../suppo
 
 describe('Property editor', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     addChild('Describe Block', 'it');
     openCodeDrawer();
@@ -107,7 +107,7 @@ describe('Property editor', () => {
  */
 describe('Property editor — node context', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     addChild('Describe Block', 'it');
   });

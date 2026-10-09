@@ -24,7 +24,11 @@ import { getDefaultReusableFlows } from '../config/reusableFlowsConfig';
 import { getRegistry } from '../registry';
 import type { Registry } from '../registry';
 import { collectInvokedFlowIds, findFlowDef } from './reusableFlows';
-import { generateReusableFlowCommand, processFlowAsSpec } from './processFlow';
+import {
+  generateReusableFlowCommand,
+  generateReusableFlowCommandType,
+  processFlowAsSpec,
+} from './processFlow';
 
 export interface BuiltSpec {
   /** Derived from the root `describe`'s label, e.g. "login.cy.ts". Falls back to "test.cy.ts". */
@@ -38,6 +42,16 @@ export interface BuiltSpec {
    * presence before deciding whether to show/download it.
    */
   commandsCode: string;
+  /**
+   * The `Cypress.Chainable` ambient-type augmentation for exactly the commands
+   * `commandsCode` defines, one `declare global` block per command, in the
+   * same first-use order. Empty string (not omitted) when `commandsCode` is,
+   * for the same reason. A real project drops this alongside `commandsCode`
+   * (e.g. prepended into the same `support/commands.ts`, or its own `.d.ts`)
+   * so `cy.<flowId>(...)` call sites type-check against real Cypress types
+   * instead of only passing the in-app syntax-only compile check.
+   */
+  commandTypesCode: string;
   /** Flow ids invoked, in first-use document order — exactly what `commandsCode` defines. */
   usedFlowIds: string[];
   /** Fixture file paths referenced anywhere in the tree (the `fixture` command's `path` prop), de-duplicated, first-seen order. */
@@ -89,7 +103,10 @@ export function buildSpec(
   const commandsCode = usedFlowIds
     .map((id) => generateReusableFlowCommand(findFlowDef(id, flows)!, reg, flows))
     .join('\n\n');
+  const commandTypesCode = usedFlowIds
+    .map((id) => generateReusableFlowCommandType(findFlowDef(id, flows)!))
+    .join('\n\n');
   const fixturePaths = collectFixturePaths(root);
 
-  return { fileName, specCode, commandsCode, usedFlowIds, fixturePaths };
+  return { fileName, specCode, commandsCode, commandTypesCode, usedFlowIds, fixturePaths };
 }

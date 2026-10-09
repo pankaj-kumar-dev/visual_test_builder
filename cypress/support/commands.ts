@@ -19,6 +19,13 @@ declare global {
        * `targetSelector` using synthetic HTML5 drag events.
        */
       dragDrop(sourceSelector: string, targetSelector: string): Chainable<void>;
+
+      /**
+       * Visit the app and dismiss the landing page, landing on the builder
+       * workspace. Every spec exercises the builder, not the marketing page,
+       * so this replaces a bare `cy.visit('/')` as the standard entry point.
+       */
+      visitApp(): Chainable<void>;
     }
   }
 }
@@ -36,5 +43,11 @@ Cypress.Commands.add(
     cy.get(sourceSelector).first().trigger('dragend', { dataTransfer, force: true });
   },
 );
+
+Cypress.Commands.add('visitApp', () => {
+  cy.visit('/');
+  cy.get('[data-testid=open-builder]').click();
+  cy.get('[data-testid=canvas]').should('be.visible');
+});
 
 export {};

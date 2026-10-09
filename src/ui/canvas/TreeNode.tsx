@@ -139,7 +139,16 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
   // container whose last child was just deleted while collapsed would be
   // stuck hiding its own (now-empty) insertion point with no chevron left to
   // un-collapse it.
-  const canHaveChildren = !!def && 'allowedChildren' in def && def.allowedChildren.length > 0;
+  // A multi-slot node (e.g. `if`, `try` — Phase 5's `slots`) declares
+  // `allowedChildren: []`: it never accepts an ordinary child directly, only
+  // through its named `slot` wrapper children. Without also checking
+  // `slots`, this row would never show those wrapper rows at all — If/Then/
+  // Else and Try/Catch/Finally would render with no way to see or drop into
+  // their branches, regardless of collapse state.
+  const canHaveChildren =
+    !!def &&
+    (('allowedChildren' in def && def.allowedChildren.length > 0) ||
+      ('slots' in def && !!def.slots?.length));
   const showChildren = canHaveChildren && !(isCollapsed && childCount > 0);
 
   // Bring the selected row into view. `block: 'nearest'` makes this a no-op when the

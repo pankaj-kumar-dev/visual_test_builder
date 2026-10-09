@@ -38,7 +38,7 @@ function addTryNode(parentLabel: string): void {
 
 describe('Switch/Case/Default and Try/Recover (Phase 5 completion)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     selectNode('Describe Block');
     setProp('label', 'Suite');

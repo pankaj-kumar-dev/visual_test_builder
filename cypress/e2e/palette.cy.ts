@@ -38,7 +38,7 @@ const ALL_TYPES = [
 
 describe('Palette', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   context('SM-04 — chips sourced from the registry', () => {

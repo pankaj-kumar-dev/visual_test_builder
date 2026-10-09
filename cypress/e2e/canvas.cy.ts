@@ -7,7 +7,7 @@ import { addChild, addRoot, nodeIdByLabel, selectNode } from '../support/flows';
 
 describe('Canvas', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   context('SM-05 — create the root node', () => {

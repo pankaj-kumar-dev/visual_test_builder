@@ -12,7 +12,7 @@ import { addChild, addRoot, openCodeDrawer, selectNode, setProp } from '../suppo
 
 describe('Flow JSON import/export', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   it('imports a valid Flow JSON file and renders + compiles it', () => {
@@ -76,7 +76,7 @@ describe('Flow JSON import/export', () => {
 
 describe('Number property type (Phase 1)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   it('renders a number field as a real <input type="number">', () => {

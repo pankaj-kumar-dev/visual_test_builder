@@ -32,7 +32,7 @@ function attemptRejectedDrop(parentLabel: string, type: string): void {
 
 describe('Blocks (Phase 2)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     selectNode('Describe Block');
     setProp('label', 'Grid');

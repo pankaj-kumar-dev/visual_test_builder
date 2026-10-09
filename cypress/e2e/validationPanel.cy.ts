@@ -21,7 +21,7 @@ function openValidationPanel(): void {
 
 describe('Validation panel (Phase 5F)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     selectNode('Describe Block');
     setProp('label', 'Suite');

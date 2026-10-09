@@ -267,9 +267,20 @@ function renderBody(
   mode: GenMode = {},
 ): string {
   const schema = getSchema(node.type, reg);
-  const childrenCode = node.children?.length
-    ? node.children.map((child) => generateNode(child, reg, flows, visiting, mode)).join('\n')
-    : '';
+  // Only generate `node.children` when the template actually consumes
+  // `{{children}}` (an ordinary single-body block). A multi-slot node (e.g.
+  // `if`) never references it — its children are wrapped in named `slot`
+  // nodes and rendered on demand by the `{{slot:name}}` pass below instead.
+  // Generating `node.children` unconditionally here would re-render that
+  // same subtree a second time (once through this unused result, once
+  // through the slot it actually belongs to) at every level — for a node
+  // nested inside itself (e.g. `if` inside `if`'s `then`), that doubling
+  // compounds per level into O(2^depth) instead of O(depth): harmless at a
+  // handful of levels, a multi-minute hang by around 20.
+  const childrenCode =
+    node.children?.length && template.includes(CHILDREN_PLACEHOLDER)
+      ? node.children.map((child) => generateNode(child, reg, flows, visiting, mode)).join('\n')
+      : '';
   const params = resolveBindingNames(
     'bindsParameters' in def ? def.bindsParameters : undefined,
     node.props ?? {},
@@ -524,6 +535,34 @@ export function generateReusableFlowCommand(
   const paramNames = def.params.map((param) => param.key);
   const bodyCode = def.body.map((node) => generateNode(node, reg, flows, [], { paramNames })).join('\n');
   return `Cypress.Commands.add('${def.id}', (${paramNames.join(', ')}) => {\n${indent(bodyCode)}\n});`;
+}
+
+/**
+ * The `Cypress.Chainable` ambient-type augmentation for one reusable-flow
+ * command, paired 1:1 with `generateReusableFlowCommand`'s output.
+ *
+ * Without this, a real `tsc` run against Cypress's actual ambient types
+ * (not `engine/compileCheck.ts`'s syntax-only `transpileModule` check) rejects
+ * every `cy.<id>(...)` call site with "Property '<id>' does not exist on type
+ * 'cy'" — the generated JavaScript is correct, but it isn't valid, drop-in
+ * TypeScript without declaring the command it calls. Every parameter is typed
+ * `number` for a `number`-typed definition param, `string` otherwise — the
+ * same distinction `reusableFlowCallArgs` already draws when it decides
+ * whether a call-site argument is quoted.
+ */
+export function generateReusableFlowCommandType(def: ReusableFlowDef): string {
+  const params = def.params
+    .map((param) => `${param.key}: ${param.type === 'number' ? 'number' : 'string'}`)
+    .join(', ');
+  return (
+    'declare global {\n' +
+    '  namespace Cypress {\n' +
+    '    interface Chainable {\n' +
+    `      ${def.id}(${params}): Chainable<void>;\n` +
+    '    }\n' +
+    '  }\n' +
+    '}'
+  );
 }
 
 /**

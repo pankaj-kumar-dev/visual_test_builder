@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cy:open": "cypress open",
-    "cy:run": "cypress run"
+    "cy:run": "cypress run",
+    "generate:export-fixture": "vitest run src/engine/exportedSpecFixture.test.ts",
+    "typecheck:export-fixture": "tsc --noEmit -p cypress/tsconfig.json",
+    "verify:export": "npm run generate:export-fixture && npm run typecheck:export-fixture && cypress run --spec cypress/e2e/generated/exported-dashboard.cy.ts"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.2.7",

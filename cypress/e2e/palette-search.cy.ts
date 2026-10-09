@@ -11,7 +11,7 @@ import { addChild, addRoot, openCodeDrawer, searchPalette, selectNode } from '..
 
 describe('Palette search', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   context('finding nodes', () => {

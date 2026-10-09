@@ -33,7 +33,7 @@ function attemptRejectedDrop(parentLabel: string, type: string): void {
 
 describe('Chain', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   context('appears in the palette and can be added to an it block', () => {

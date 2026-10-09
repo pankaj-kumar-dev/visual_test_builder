@@ -20,7 +20,7 @@ import {
 
 describe('References (Phase 3)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
     addRoot('describe');
     selectNode('Describe Block');
     setProp('label', 'Suite');

@@ -102,10 +102,36 @@ describe('buildSpec', () => {
     expect(built.specCode).toContain("cy.login('admin', 'hunter2');");
   });
 
-  it('produces an empty commandsCode string (not omitted) when no reusable flow is used', () => {
+  it('pairs commandsCode with a matching Cypress.Chainable ambient-type augmentation', () => {
+    const built = buildSpec(flowWithInvocation(), undefined, [LOGIN])!;
+    expect(built.commandTypesCode).toBe(
+      'declare global {\n' +
+        '  namespace Cypress {\n' +
+        '    interface Chainable {\n' +
+        '      login(username: string, password: string): Chainable<void>;\n' +
+        '    }\n' +
+        '  }\n' +
+        '}',
+    );
+  });
+
+  it('types a number-typed param as number, not string', () => {
+    const EQ: ReusableFlowDef = {
+      id: 'pickNth',
+      name: 'Pick Nth',
+      params: [{ key: 'index', label: 'Index', type: 'number', required: true }],
+      body: [{ id: 'b1', type: 'click', props: { selector: '#x' } }],
+    };
+    const flow: FlowNode = { id: 'invoke-1', type: 'flowInvocation', props: { flowId: 'pickNth', index: '2' } };
+    const built = buildSpec(flow, undefined, [EQ])!;
+    expect(built.commandTypesCode).toContain('pickNth(index: number): Chainable<void>;');
+  });
+
+  it('produces an empty commandsCode and commandTypesCode (not omitted) when no reusable flow is used', () => {
     const flow: FlowNode = { id: 'click-1', type: 'click', props: { selector: '#x' } };
     const built = buildSpec(flow)!;
     expect(built.commandsCode).toBe('');
+    expect(built.commandTypesCode).toBe('');
     expect(built.usedFlowIds).toEqual([]);
   });
 

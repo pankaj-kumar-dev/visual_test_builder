@@ -1,0 +1,3 @@
+{
+  "note": "Loaded by the exported-spec executability check (src/engine/exportedSpecFixture.test.ts) via a generated cy.fixture('sample.json') call."
+}

@@ -17,7 +17,7 @@ function noHorizontalPageOverflow(): void {
 
 describe('Code drawer — scrolling and keyboard', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   it('a long generated test stays scrollable and the warning list stays reachable', () => {
@@ -62,7 +62,7 @@ describe('Code drawer — scrolling and keyboard', () => {
 
 describe('Code drawer — responsive layout', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   it('desktop (1280x800): drawer adds a 4th column; palette/canvas/properties stay visible', () => {

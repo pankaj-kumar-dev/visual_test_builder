@@ -12,7 +12,7 @@ import { addChild, addRoot, selectNode, setProp } from '../support/flows';
 
 describe('Undo/redo (Phase 5)', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   it('both buttons start disabled on an empty canvas', () => {
@@ -31,7 +31,7 @@ describe('Undo/redo (Phase 5)', () => {
     cy.contains('[data-testid=tree-node]', 'Describe Block').should('exist');
 
     cy.get('[data-testid=undo-button]').click();
-    cy.get('[data-testid=canvas]').should('contain.text', 'Drag a structural node here to start building.');
+    cy.get('[data-testid=templates-panel]').should('be.visible');
     cy.get('[data-testid=redo-button]').should('not.be.disabled');
   });
 
@@ -76,7 +76,7 @@ describe('Undo/redo (Phase 5)', () => {
     cy.get('[data-testid=tree-node]').should('have.length', 1);
 
     cy.get('[data-testid=undo-button]').click(); // undo adding the root
-    cy.get('[data-testid=canvas]').should('contain.text', 'Drag a structural node here to start building.');
+    cy.get('[data-testid=templates-panel]').should('be.visible');
     cy.get('[data-testid=undo-button]').should('be.disabled');
 
     cy.get('[data-testid=redo-button]').click(); // redo the root

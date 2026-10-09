@@ -136,6 +136,7 @@ export function LandingPage({ onOpenBuilder }: LandingPageProps) {
           <button
             type="button"
             className="landing__nav-cta"
+            data-testid="open-builder"
             onClick={onOpenBuilder}
           >
             Open Builder

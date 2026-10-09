@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  Static target page for the "exported spec actually runs" check
+  (src/engine/exportedSpecFixture.test.ts + npm run verify:export).
+
+  This is a real page a generated Cypress spec drives — not the Visual Test
+  Builder app itself. It exists so a spec exported from the builder (login,
+  intercept + alias wait, fixture load, reusable-flow invocation) can be
+  executed for real by `cypress run`, proving the generated code is valid,
+  runnable Cypress, not just syntactically parseable TypeScript.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Exported spec fixture target</title>
+  </head>
+  <body>
+    <form id="login-form">
+      <input id="username" name="username" />
+      <input id="password" name="password" type="password" />
+      <button id="login-submit" type="button">Log in</button>
+    </form>
+
+    <div id="dashboard" hidden>
+      <button id="save-button" type="button">Save</button>
+      <div id="notification" hidden></div>
+      <button id="logout-button" type="button">Log out</button>
+    </div>
+
+    <script>
+      document.getElementById('login-submit').addEventListener('click', function () {
+        document.getElementById('login-form').hidden = true;
+        document.getElementById('dashboard').hidden = false;
+      });
+
+      document.getElementById('save-button').addEventListener('click', function () {
+        fetch('/api/save', { method: 'POST' })
+          .catch(function () {
+            // Cypress's cy.intercept stubs this before it ever reaches the
+            // network; a real environment with no backend would reject it,
+            // and the notification should still appear either way.
+          })
+          .finally(function () {
+            var notification = document.getElementById('notification');
+            notification.textContent = 'Saved';
+            notification.hidden = false;
+          });
+      });
+
+      document.getElementById('logout-button').addEventListener('click', function () {
+        document.getElementById('dashboard').hidden = true;
+        document.getElementById('login-form').hidden = false;
+      });
+    </script>
+  </body>
+</html>

@@ -7,7 +7,7 @@
 
 describe('Application boot', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visitApp();
   });
 
   context('SM-03 — app launches and registry loads', () => {
@@ -31,9 +31,9 @@ describe('Application boot', () => {
       cy.get('[data-testid=code-drawer]').should('not.exist');
     });
 
-    it('starts in the empty state', () => {
+    it('starts in the empty state, offering the templates panel instead of a bare drop target', () => {
       cy.get('[data-testid=tree-node]').should('not.exist');
-      cy.get('[data-testid=canvas]').should('contain.text', 'Drag a structural node');
+      cy.get('[data-testid=templates-panel]').should('be.visible');
     });
   });
 });
