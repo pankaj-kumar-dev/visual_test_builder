@@ -1,0 +1,147 @@
+[
+  {
+    "id": "login-test",
+    "name": "Login Test",
+    "description": "Visit the login page, sign in, and assert the dashboard appears.",
+    "flow": {
+      "id": "login-test-describe",
+      "type": "describe",
+      "props": { "label": "Login" },
+      "children": [
+        {
+          "id": "login-test-it",
+          "type": "it",
+          "props": { "label": "logs in with valid credentials" },
+          "children": [
+            { "id": "login-test-visit", "type": "visit", "props": { "url": "/login" } },
+            { "id": "login-test-type-user", "type": "type", "props": { "selector": "#username", "value": "testuser" } },
+            { "id": "login-test-type-pass", "type": "type", "props": { "selector": "#password", "value": "password123" } },
+            { "id": "login-test-click", "type": "click", "props": { "selector": "#login-submit" } },
+            { "id": "login-test-assert", "type": "should", "props": { "selector": "#dashboard", "assertion": "be.visible" } }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "crud-test",
+    "name": "CRUD Test",
+    "description": "Create a record, then delete it, asserting the resulting notification each time.",
+    "flow": {
+      "id": "crud-test-describe",
+      "type": "describe",
+      "props": { "label": "Manage Records" },
+      "children": [
+        {
+          "id": "crud-test-it-create",
+          "type": "it",
+          "props": { "label": "creates a new record" },
+          "children": [
+            { "id": "crud-test-visit-new", "type": "visit", "props": { "url": "/records/new" } },
+            { "id": "crud-test-type-name", "type": "type", "props": { "selector": "#name-input", "value": "Test Record" } },
+            { "id": "crud-test-click-save", "type": "click", "props": { "selector": "#save-button" } },
+            {
+              "id": "crud-test-assert-create",
+              "type": "should",
+              "props": { "selector": "#notification", "assertion": "contain.text", "value": "created" }
+            }
+          ]
+        },
+        {
+          "id": "crud-test-it-delete",
+          "type": "it",
+          "props": { "label": "deletes an existing record" },
+          "children": [
+            { "id": "crud-test-visit-detail", "type": "visit", "props": { "url": "/records/1" } },
+            { "id": "crud-test-click-delete", "type": "click", "props": { "selector": "#delete-button" } },
+            {
+              "id": "crud-test-assert-delete",
+              "type": "should",
+              "props": { "selector": "#notification", "assertion": "contain.text", "value": "deleted" }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "form-validation-test",
+    "name": "Form Validation Test",
+    "description": "Submit a form with required fields empty and assert the validation error appears.",
+    "flow": {
+      "id": "form-test-describe",
+      "type": "describe",
+      "props": { "label": "Form Validation" },
+      "children": [
+        {
+          "id": "form-test-it",
+          "type": "it",
+          "props": { "label": "shows an error when required fields are empty" },
+          "children": [
+            { "id": "form-test-visit", "type": "visit", "props": { "url": "/form" } },
+            { "id": "form-test-click", "type": "click", "props": { "selector": "#submit-button" } },
+            { "id": "form-test-assert", "type": "should", "props": { "selector": "#error-message", "assertion": "be.visible" } }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "search-test",
+    "name": "Search Test",
+    "description": "Type a query, submit it, and assert the results list appears.",
+    "flow": {
+      "id": "search-test-describe",
+      "type": "describe",
+      "props": { "label": "Search" },
+      "children": [
+        {
+          "id": "search-test-it",
+          "type": "it",
+          "props": { "label": "returns results for a query" },
+          "children": [
+            { "id": "search-test-visit", "type": "visit", "props": { "url": "/search" } },
+            { "id": "search-test-type", "type": "type", "props": { "selector": "#search-input", "value": "cypress" } },
+            { "id": "search-test-click", "type": "click", "props": { "selector": "#search-button" } },
+            { "id": "search-test-assert", "type": "should", "props": { "selector": "#search-results", "assertion": "be.visible" } }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "api-test",
+    "name": "API Test",
+    "description": "Intercept a request, trigger it, wait on the alias, and assert the resulting notification.",
+    "flow": {
+      "id": "api-test-describe",
+      "type": "describe",
+      "props": { "label": "API" },
+      "children": [
+        {
+          "id": "api-test-it",
+          "type": "it",
+          "props": { "label": "waits for the save request and confirms the notification" },
+          "children": [
+            {
+              "id": "api-test-chain",
+              "type": "chain",
+              "props": {},
+              "children": [
+                { "id": "api-test-intercept", "type": "intercept", "props": { "url": "/api/save" } },
+                { "id": "api-test-as", "type": "as", "props": { "name": "saveRequest" } }
+              ]
+            },
+            { "id": "api-test-click", "type": "click", "props": { "selector": "#save-button" } },
+            { "id": "api-test-wait", "type": "waitAlias", "props": { "alias": "@saveRequest" } },
+            {
+              "id": "api-test-assert",
+              "type": "should",
+              "props": { "selector": "#notification", "assertion": "contain.text", "value": "Saved" }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]
