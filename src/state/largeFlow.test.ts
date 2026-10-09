@@ -93,6 +93,9 @@ function stateFor(tree: FlowNode): AppState {
     collapsedNodeIds: {},
     reusableFlows: [],
     history: { past: [], future: [] },
+    multiSelectedIds: {},
+    rangeAnchorId: null,
+    isBuildPanelOpen: false,
   };
 }
 

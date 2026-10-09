@@ -9,11 +9,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  collectInvokedFlowIds,
   expandInvocation,
   findFlowCycle,
   findFlowDef,
   interpolate,
   resolveInvocationSchema,
+  slugifyFlowName,
 } from './reusableFlows';
 import type { FlowNode, ReusableFlowDef } from '../domain/types';
 
@@ -194,5 +196,59 @@ describe('findFlowCycle', () => {
     };
     const B: ReusableFlowDef = { id: 'b', name: 'B', params: [], body: [] };
     expect(findFlowCycle('a', [A, B])).toBeNull();
+  });
+});
+
+describe('slugifyFlowName (Phase 8, reusable-flow authoring)', () => {
+  it('lowercases and hyphenates a plain name', () => {
+    expect(slugifyFlowName('Login Flow', [])).toBe('login-flow');
+  });
+
+  it('collapses punctuation/whitespace runs into a single hyphen', () => {
+    expect(slugifyFlowName('  Create -- Record!! ', [])).toBe('create-record');
+  });
+
+  it('falls back to "flow" for a name with no alphanumeric characters', () => {
+    expect(slugifyFlowName('***', [])).toBe('flow');
+  });
+
+  it('appends -2, -3, … to resolve a collision', () => {
+    expect(slugifyFlowName('Login', ['login'])).toBe('login-2');
+    expect(slugifyFlowName('Login', ['login', 'login-2'])).toBe('login-3');
+  });
+
+  it('does not collide with an unrelated existing id', () => {
+    expect(slugifyFlowName('Logout', ['login'])).toBe('logout');
+  });
+});
+
+describe('collectInvokedFlowIds (Phase 9, "compile-ready" export)', () => {
+  it('returns nothing for a null flow or a tree with no invocation', () => {
+    expect(collectInvokedFlowIds(null)).toEqual([]);
+    expect(collectInvokedFlowIds({ id: 'click-1', type: 'click', props: {} })).toEqual([]);
+  });
+
+  it('finds an invocation at any depth and de-duplicates repeats, first-seen order', () => {
+    const flow: FlowNode = {
+      id: 'it-1',
+      type: 'it',
+      props: {},
+      children: [
+        { id: 'inv-1', type: 'flowInvocation', props: { flowId: 'login' } },
+        {
+          id: 'within-1',
+          type: 'within',
+          props: {},
+          children: [{ id: 'inv-2', type: 'flowInvocation', props: { flowId: 'search' } }],
+        },
+        { id: 'inv-3', type: 'flowInvocation', props: { flowId: 'login' } },
+      ],
+    };
+    expect(collectInvokedFlowIds(flow)).toEqual(['login', 'search']);
+  });
+
+  it('ignores an invocation with no flowId selected yet', () => {
+    const flow: FlowNode = { id: 'inv-1', type: 'flowInvocation', props: {} };
+    expect(collectInvokedFlowIds(flow)).toEqual([]);
   });
 });

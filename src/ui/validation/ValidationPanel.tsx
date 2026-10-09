@@ -11,10 +11,10 @@
  * exact same hooks the canvas (TreeNode highlighting) and the property editor
  * (per-field highlighting) already read. This panel adds no third
  * computation and no new rule: it is a pure renderer over those two results,
- * grouped by severity (`engine/references.ts`'s `SemanticIssueSeverity` —
- * every unresolved-property entry counts as an error, the same way a
- * required field being empty always has), so "the engine remains the source
- * of truth" holds structurally, not just by convention.
+ * grouped by severity — `engine/references.ts`'s `SemanticIssueSeverity` for
+ * semantic issues, and (Phase 6) `engine/unresolved.ts`'s own
+ * `UnresolvedNode.severity` for structural ones, so "the engine remains the
+ * source of truth" holds structurally, not just by convention.
  *
  * Distinct from `ui/output/CodeDrawer.tsx`, which already renders its own
  * inline warning lists beside the generated code — this panel is additive
@@ -62,15 +62,21 @@ export function ValidationPanel() {
 
   const semanticErrors = semanticIssues.filter((issue) => issue.severity === 'error');
   const semanticWarnings = semanticIssues.filter((issue) => issue.severity === 'warning');
+  const unresolvedErrors = unresolved.filter((node) => node.severity === 'error');
+  const unresolvedWarnings = unresolved.filter((node) => node.severity === 'warning');
 
-  // Every unresolved-property/structural finding is an error — a required
-  // field being empty (or a switch missing its one Case, or a Try with no
-  // Catch) is never merely advisory.
+  // A required field being empty (or a switch missing its one Case, or
+  // invalid slot placement) is an error; an empty-but-otherwise-valid block
+  // or slot body (Phase 6, `engine/unresolved.ts`'s own severity) is only a
+  // warning — advisory, not blocking.
   const errorRows: ValidationRow[] = [
-    ...unresolved.map(rowsFromUnresolved),
+    ...unresolvedErrors.map(rowsFromUnresolved),
     ...semanticErrors.map((issue, index) => rowFromSemanticIssue(issue, index)),
   ];
-  const warningRows: ValidationRow[] = semanticWarnings.map((issue, index) => rowFromSemanticIssue(issue, index));
+  const warningRows: ValidationRow[] = [
+    ...unresolvedWarnings.map(rowsFromUnresolved),
+    ...semanticWarnings.map((issue, index) => rowFromSemanticIssue(issue, index)),
+  ];
 
   useEffect(() => {
     closeButtonRef.current?.focus();

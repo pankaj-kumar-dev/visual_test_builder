@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useAppDispatch, useAppSelector, useSemanticIssues, useUnresolvedNodes } from '../../app/hooks';
 import { addNode, selectNode } from '../../state/builderSlice';
 import { readDragPayload } from '../dnd';
+import { TemplatesPanel } from './TemplatesPanel';
 import { TreeNode } from './TreeNode';
 
 export function Canvas() {
@@ -61,7 +62,7 @@ export function Canvas() {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        Drag a structural node here to start building.
+        <TemplatesPanel />
       </div>
     );
   }

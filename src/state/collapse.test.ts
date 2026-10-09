@@ -60,6 +60,9 @@ function stateWith(overrides: Partial<AppState> = {}): AppState {
     collapsedNodeIds: {},
     reusableFlows: [],
     history: { past: [], future: [] },
+    multiSelectedIds: {},
+    rangeAnchorId: null,
+    isBuildPanelOpen: false,
     ...overrides,
   };
 }

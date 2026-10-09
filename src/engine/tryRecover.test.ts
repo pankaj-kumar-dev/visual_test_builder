@@ -140,6 +140,7 @@ describe('try/recover — validation (requiredSlots)', () => {
         label: 'Recover',
         missing: ['"try" is empty', '"catch" is empty'],
         missingKeys: ['__slot:try', '__slot:catch'],
+        severity: 'warning',
       },
     ]);
   });
@@ -148,7 +149,14 @@ describe('try/recover — validation (requiredSlots)', () => {
     const flow = tryNode([slot('try', [log('log-1', 'x')]), slot('catch', []), slot('finally', [])]);
     const result = findUnresolvedNodes(flow);
     expect(result).toEqual([
-      { id: 'try-1', type: 'try', label: 'Recover', missing: ['"catch" is empty'], missingKeys: ['__slot:catch'] },
+      {
+        id: 'try-1',
+        type: 'try',
+        label: 'Recover',
+        missing: ['"catch" is empty'],
+        missingKeys: ['__slot:catch'],
+        severity: 'warning',
+      },
     ]);
   });
 

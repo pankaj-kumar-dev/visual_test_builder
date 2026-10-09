@@ -153,6 +153,7 @@ describe('switch/case/default — validation (childCardinality)', () => {
         label: 'Switch',
         missing: ['At least 1 Case is required'],
         missingKeys: ['__cardinality:case'],
+        severity: 'error',
       },
     ]);
   });
@@ -176,6 +177,7 @@ describe('switch/case/default — validation (childCardinality)', () => {
         label: 'Switch',
         missing: ['At most 1 Default is allowed'],
         missingKeys: ['__cardinality:default'],
+        severity: 'error',
       },
     ]);
   });
@@ -193,7 +195,7 @@ describe('switch/case/default — validation (childCardinality)', () => {
     const flow = switchNode('sw-1', '', [caseNode('case-1', '1', [log('log-1', 'x')])]);
     const result = findUnresolvedNodes(flow);
     expect(result).toEqual([
-      { id: 'sw-1', type: 'switch', label: 'Switch', missing: ['Expression'], missingKeys: ['expression'] },
+      { id: 'sw-1', type: 'switch', label: 'Switch', missing: ['Expression'], missingKeys: ['expression'], severity: 'error' },
     ]);
   });
 
@@ -201,7 +203,7 @@ describe('switch/case/default — validation (childCardinality)', () => {
     const flow = switchNode('sw-1', 'x', [caseNode('case-1', '', [log('log-1', 'x')])]);
     const result = findUnresolvedNodes(flow);
     expect(result).toEqual([
-      { id: 'case-1', type: 'case', label: 'Switch Case', missing: ['Case Value (raw JS, e.g. \'admin\' or 2)'], missingKeys: ['value'] },
+      { id: 'case-1', type: 'case', label: 'Switch Case', missing: ['Case Value (raw JS, e.g. \'admin\' or 2)'], missingKeys: ['value'], severity: 'error' },
     ]);
   });
 });

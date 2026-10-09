@@ -7,13 +7,21 @@
 
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useAppDispatch, useAppSelector, useSemanticIssues, useUnresolvedNodes } from './hooks';
-import { loadFlow, redo, setCodeDrawerOpen, setValidationPanelOpen, undo } from '../state/builderSlice';
+import {
+  loadFlow,
+  redo,
+  setBuildPanelOpen,
+  setCodeDrawerOpen,
+  setValidationPanelOpen,
+  undo,
+} from '../state/builderSlice';
 import { FlowImportError, parseFlowJson, serializeFlow } from '../state/flowIO';
 
 export function Header() {
   const dispatch = useAppDispatch();
   const isOpen = useAppSelector((state) => state.isCodeDrawerOpen);
   const isValidationPanelOpen = useAppSelector((state) => state.isValidationPanelOpen);
+  const isBuildPanelOpen = useAppSelector((state) => state.isBuildPanelOpen);
   const flow = useAppSelector((state) => state.flow);
   const canUndo = useAppSelector((state) => state.history.past.length > 0);
   const canRedo = useAppSelector((state) => state.history.future.length > 0);
@@ -23,7 +31,8 @@ export function Header() {
   const unresolved = useUnresolvedNodes();
   const semanticIssues = useSemanticIssues();
   const issueCount =
-    unresolved.length + semanticIssues.filter((issue) => issue.severity === 'error').length;
+    unresolved.filter((node) => node.severity === 'error').length +
+    semanticIssues.filter((issue) => issue.severity === 'error').length;
 
   function handleExport() {
     const blob = new Blob([serializeFlow(flow)], { type: 'application/json' });
@@ -81,6 +90,16 @@ export function Header() {
         </div>
 
         <div className="app-header__group" aria-label="Flow file actions">
+          <button
+            type="button"
+            className="app-header__action"
+            data-testid="new-flow"
+            disabled={!flow}
+            title="Start a new test (choose a template or a blank test case)"
+            onClick={() => dispatch(loadFlow(null))}
+          >
+            New
+          </button>
           <button type="button" className="app-header__action" data-testid="export-flow" onClick={handleExport}>Export</button>
           <button type="button" className="app-header__action" data-testid="import-flow" onClick={handleImportClick}>Import</button>
           <input ref={fileInputRef} type="file" accept="application/json" data-testid="import-flow-input" className="app-header__file-input" onChange={handleFileSelected} />
@@ -89,16 +108,40 @@ export function Header() {
         <div className="app-header__group app-header__group--primary" aria-label="Build tools">
           <button type="button" className={`app-header__toggle${isValidationPanelOpen ? ' is-active' : ''}`} data-testid="validation-toggle" aria-pressed={isValidationPanelOpen} aria-label={isValidationPanelOpen ? 'Close validation panel' : 'Open validation panel'} onClick={() => {
             dispatch(setValidationPanelOpen(!isValidationPanelOpen));
-            if (!isValidationPanelOpen) dispatch(setCodeDrawerOpen(false));
+            if (!isValidationPanelOpen) {
+              dispatch(setCodeDrawerOpen(false));
+              dispatch(setBuildPanelOpen(false));
+            }
           }}>
             <span className="app-header__toggle-icon" aria-hidden="true">✓</span>Validate
             {issueCount > 0 && <span className="app-header__badge" data-testid="validation-badge-count">{issueCount}</span>}
           </button>
           <button type="button" className={`app-header__toggle app-header__toggle--code${isOpen ? ' is-active' : ''}`} data-testid="code-toggle" aria-pressed={isOpen} aria-label={isOpen ? 'Close generated code drawer' : 'Open generated code drawer'} onClick={() => {
             dispatch(setCodeDrawerOpen(!isOpen));
-            if (!isOpen) dispatch(setValidationPanelOpen(false));
+            if (!isOpen) {
+              dispatch(setValidationPanelOpen(false));
+              dispatch(setBuildPanelOpen(false));
+            }
           }}>
             <span className="app-header__toggle-icon" aria-hidden="true">&lt;/&gt;</span>Code
+          </button>
+          <button
+            type="button"
+            className={`app-header__toggle app-header__toggle--build${isBuildPanelOpen ? ' is-active' : ''}`}
+            data-testid="build-toggle"
+            disabled={!flow}
+            aria-pressed={isBuildPanelOpen}
+            aria-label={isBuildPanelOpen ? 'Close build panel' : 'Open build panel'}
+            title="Validate, generate, and syntax-check a compile-ready spec"
+            onClick={() => {
+              dispatch(setBuildPanelOpen(!isBuildPanelOpen));
+              if (!isBuildPanelOpen) {
+                dispatch(setValidationPanelOpen(false));
+                dispatch(setCodeDrawerOpen(false));
+              }
+            }}
+          >
+            <span className="app-header__toggle-icon" aria-hidden="true">▶</span>Build Test
           </button>
         </div>
       </div>

@@ -33,6 +33,9 @@ export const store = configureStore({
     collapsedNodeIds: {},
     reusableFlows,
     history: { past: [], future: [] },
+    multiSelectedIds: {},
+    rangeAnchorId: null,
+    isBuildPanelOpen: false,
   },
 });
 

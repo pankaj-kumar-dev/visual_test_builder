@@ -4,31 +4,31 @@
   ],
 
   "get": [
-    { "key": "selector", "label": "Selector", "type": "text", "required": true, "acceptsReference": true },
-    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
+    { "key": "selector", "label": "Selector", "type": "selector", "required": true, "acceptsReference": true },
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false, "advanced": true }
   ],
   "contains": [
     { "key": "text", "label": "Text", "type": "text", "required": true },
     { "key": "selector", "label": "Selector (optional scope)", "type": "text", "required": false, "acceptsReference": true },
-    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false, "advanced": true }
   ],
   "find": [
     {
       "key": "selector",
       "label": "Container Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false },
       "acceptsReference": true
     },
-    { "key": "target", "label": "Descendant Selector", "type": "text", "required": true },
-    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false }
+    { "key": "target", "label": "Descendant Selector", "type": "selector", "required": true },
+    { "key": "timeout", "label": "Retry timeout (ms, optional)", "type": "number", "required": false, "advanced": true }
   ],
   "first": [
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -37,7 +37,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -46,7 +46,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -57,7 +57,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -67,7 +67,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -77,7 +77,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -87,7 +87,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -97,7 +97,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -107,7 +107,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -117,7 +117,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -127,7 +127,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -138,7 +138,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -147,7 +147,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -157,7 +157,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -166,7 +166,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -175,7 +175,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -184,7 +184,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -194,7 +194,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -203,7 +203,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -212,7 +212,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -221,7 +221,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -230,7 +230,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -239,7 +239,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -249,7 +249,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     }
@@ -259,7 +259,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -289,13 +289,13 @@
       ]
     },
     { "key": "value", "label": "Value", "type": "text", "required": false },
-    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false }
+    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false, "advanced": true }
   ],
   "and": [
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -325,7 +325,7 @@
       ]
     },
     { "key": "value", "label": "Value", "type": "text", "required": false },
-    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false }
+    { "key": "count", "label": "Count (for have.length)", "type": "number", "required": false, "advanced": true }
   ],
 
   "reload": [],
@@ -362,7 +362,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },
@@ -372,7 +372,7 @@
     {
       "key": "selector",
       "label": "Selector",
-      "type": "text",
+      "type": "selector",
       "required": true,
       "visibleWhen": { "hasSubject": false }
     },

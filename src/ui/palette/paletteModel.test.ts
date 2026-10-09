@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   breadcrumbOf,
   buildPaletteTree,
+  collectCommonNodes,
   collectPaletteNodes,
   searchPaletteTree,
 } from './paletteModel';
@@ -195,6 +196,32 @@ describe('buildPaletteTree — ordering', () => {
   });
 });
 
+describe('collectCommonNodes — pinned "Common" shortlist (Phase 6)', () => {
+  it('returns only nodes tagged common, in registry order', () => {
+    const registry = fixtureRegistry([
+      command('get', { group: 'traversal' }),
+      command('click', { group: 'action', common: true }),
+      command('type', { group: 'action', common: true }),
+      command('first', { group: 'traversal' }),
+    ]);
+    expect(collectCommonNodes(registry).map((n) => n.type)).toEqual(['click', 'type']);
+  });
+
+  it('is empty when nothing is tagged common', () => {
+    const registry = fixtureRegistry([command('get', { group: 'traversal' })]);
+    expect(collectCommonNodes(registry)).toEqual([]);
+  });
+
+  it('a common node still carries its ordinary category/subgroup placement', () => {
+    const registry = fixtureRegistry([
+      command('click', { group: 'action', subgroup: 'mouse', common: true }),
+    ]);
+    const [node] = collectCommonNodes(registry);
+    expect(node.group).toBe('action');
+    expect(node.subgroup).toBe('mouse');
+  });
+});
+
 describe('searchPaletteTree — matching', () => {
   const registry = fixtureRegistry([
     command('get', { group: 'traversal', subgroup: 'element', description: 'Select elements by CSS selector.' }),
@@ -324,6 +351,13 @@ describe('bundled registry — the palette the app actually renders', () => {
     expect(listed.slice().sort()).toEqual(expected.slice().sort());
     expect(new Set(listed).size).toBe(listed.length);
     expect(listed).not.toContain('slot');
+  });
+
+  it('pins the curated "Common" shortlist (Phase 6)', () => {
+    const common = collectCommonNodes(getRegistry()).map((n) => n.type);
+    expect(common).toEqual([
+      'visit', 'get', 'click', 'type', 'check', 'select', 'should', 'screenshot', 'waitAlias',
+    ]);
   });
 
   it('groups traversal into Element, Position, Relative and Introspect', () => {

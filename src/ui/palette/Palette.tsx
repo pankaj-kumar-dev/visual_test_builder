@@ -20,6 +20,7 @@ import { getRegistry } from '../../registry';
 import { PaletteItem } from './PaletteItem';
 import {
   buildPaletteTree,
+  collectCommonNodes,
   searchPaletteTree,
   type PaletteCategory,
   type PaletteNode,
@@ -30,6 +31,7 @@ export function Palette() {
   // The registry is built once at startup and never mutates, so the tree is built
   // once per mount rather than on every keystroke.
   const categories = useMemo(() => buildPaletteTree(registry), [registry]);
+  const commonNodes = useMemo(() => collectCommonNodes(registry), [registry]);
 
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -125,14 +127,27 @@ export function Palette() {
           )}
         </section>
       ) : (
-        categories.map((category) => (
-          <CategorySection
-            key={category.id}
-            category={category}
-            isCollapsed={!!collapsed[category.id]}
-            onToggle={() => toggleCategory(category.id)}
-          />
-        ))
+        <>
+          {commonNodes.length > 0 && (
+            <section className="palette__group" data-testid="palette-common">
+              <h2 className="palette__title">
+                Common
+                <span className="palette__count">{commonNodes.length}</span>
+              </h2>
+              {commonNodes.map((node) => (
+                <PaletteItem key={`common-${node.type}`} node={node} />
+              ))}
+            </section>
+          )}
+          {categories.map((category) => (
+            <CategorySection
+              key={category.id}
+              category={category}
+              isCollapsed={!!collapsed[category.id]}
+              onToggle={() => toggleCategory(category.id)}
+            />
+          ))}
+        </>
       )}
     </div>
   );

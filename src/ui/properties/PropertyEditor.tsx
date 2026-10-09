@@ -13,22 +13,107 @@
  * hidden here can never appear as an unresolved warning anywhere else.
  */
 
-import { useMemo } from 'react';
-import { useAppDispatch, useAppSelector, useUnresolvedNodes } from '../../app/hooks';
+import { useEffect, useMemo, useState } from 'react';
+import { useAppDispatch, useAppSelector, useSelectedNodeIds, useUnresolvedNodes } from '../../app/hooks';
 import type { PropDef } from '../../domain/types';
 import { deriveNodeContext, hiddenProps, resolveSchema } from '../../engine/nodeContext';
 import { referencesInScope } from '../../engine/references';
 import { resolveInvocationSchema } from '../../engine/reusableFlows';
 import { getRegistry } from '../../registry';
-import { updateProp } from '../../state/builderSlice';
-import { findNode } from '../../state/flowTree';
+import {
+  clearMultiSelect,
+  deleteSelectedNodes,
+  duplicateSelectedNodes,
+  saveAsReusableFlow,
+  updateProp,
+} from '../../state/builderSlice';
+import { findNode, nodesInDocumentOrder } from '../../state/flowTree';
+import { SaveAsFlowDialog } from '../common/SaveAsFlowDialog';
 import { PropertyField } from './PropertyField';
+
+/**
+ * Phase 8, multi-select: the right panel's content when more than one node is
+ * selected. Editing one arbitrary node's fields would be meaningless (and
+ * ambiguous — *which* of the selected nodes?), so the panel instead offers
+ * the bulk actions that make a multi-selection worth having in the first
+ * place, mirroring the single-row context menu's own action set.
+ */
+function BulkSelectionPanel({ selectedIds }: { selectedIds: string[] }) {
+  const dispatch = useAppDispatch();
+  const flow = useAppSelector((state) => state.flow);
+  const [isSavingFlow, setIsSavingFlow] = useState(false);
+
+  // "Save as reusable flow" additionally requires the selection to be a
+  // coherent ordered sequence of siblings (state/flowTree.ts's own rule,
+  // re-checked by the reducer itself) — Duplicate/Delete have no such
+  // requirement, so only this one button is conditionally disabled.
+  const canSaveAsFlow = useMemo(() => {
+    if (!flow) return false;
+    return nodesInDocumentOrder(flow, selectedIds).length === selectedIds.length;
+  }, [flow, selectedIds]);
+
+  return (
+    <div className="property-editor property-editor--bulk" data-testid="bulk-selection-panel">
+      <h2 className="property-editor__title">{selectedIds.length} steps selected</h2>
+      <p className="property-editor__context">Ctrl/Cmd-click a row to add or remove it.</p>
+
+      <div className="property-editor__bulk-actions">
+        <button
+          type="button"
+          className="property-editor__bulk-action"
+          data-testid="bulk-duplicate"
+          onClick={() => dispatch(duplicateSelectedNodes())}
+        >
+          Duplicate all
+        </button>
+        <button
+          type="button"
+          className="property-editor__bulk-action"
+          data-testid="bulk-save-flow"
+          disabled={!canSaveAsFlow}
+          title={canSaveAsFlow ? undefined : 'Select steps within the same group to save as a flow.'}
+          onClick={() => setIsSavingFlow(true)}
+        >
+          Save as reusable flow
+        </button>
+        <button
+          type="button"
+          className="property-editor__bulk-action property-editor__bulk-action--danger"
+          data-testid="bulk-delete"
+          onClick={() => dispatch(deleteSelectedNodes())}
+        >
+          Delete all
+        </button>
+        <button
+          type="button"
+          className="property-editor__bulk-action property-editor__bulk-action--ghost"
+          data-testid="bulk-clear"
+          onClick={() => dispatch(clearMultiSelect())}
+        >
+          Clear selection
+        </button>
+      </div>
+
+      {isSavingFlow && (
+        <SaveAsFlowDialog
+          nodeCount={selectedIds.length}
+          onCancel={() => setIsSavingFlow(false)}
+          onSave={(name) => {
+            dispatch(saveAsReusableFlow({ nodeIds: selectedIds, name }));
+            setIsSavingFlow(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 export function PropertyEditor() {
   const dispatch = useAppDispatch();
   const flow = useAppSelector((state) => state.flow);
   const selectedNodeId = useAppSelector((state) => state.selectedNodeId);
   const reusableFlows = useAppSelector((state) => state.reusableFlows);
+  const selectedIds = useSelectedNodeIds();
   const node = flow && selectedNodeId ? findNode(flow, selectedNodeId) : null;
   const unresolved = useUnresolvedNodes();
 
@@ -47,6 +132,17 @@ export function PropertyEditor() {
     () => Array.from(referencesInScope(flow, selectedNodeId ?? '', registry)).sort(),
     [flow, selectedNodeId, registry],
   );
+  // Phase 7: progressive disclosure — collapsed by default, reset whenever
+  // the selection changes so expanding Advanced on one node never leaks into
+  // the next one selected.
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  useEffect(() => {
+    setShowAdvanced(false);
+  }, [selectedNodeId]);
+
+  if (selectedIds.length > 1) {
+    return <BulkSelectionPanel selectedIds={selectedIds} />;
+  }
 
   if (!node) {
     return (
@@ -77,6 +173,27 @@ export function PropertyEditor() {
   // drawer's warning list and the canvas highlight use.
   const missingKeys = new Set(unresolved.find((u) => u.id === node.id)?.missingKeys ?? []);
 
+  // Phase 7: progressive disclosure — split once, render as two lists. A
+  // field is never silently lost either way: it's always in exactly one of
+  // the two, same `schema` source, just partitioned by `PropDef.advanced`.
+  const primary = schema.filter(({ def: propDef }) => !propDef.advanced);
+  const advanced = schema.filter(({ def: propDef }) => propDef.advanced);
+  const advancedMissingCount = advanced.filter(({ def: propDef }) => missingKeys.has(propDef.key)).length;
+
+  function renderField({ def: propDef, disabled }: { def: PropDef; disabled: boolean }) {
+    return (
+      <PropertyField
+        key={propDef.key}
+        def={propDef}
+        value={node!.props?.[propDef.key] ?? ''}
+        isMissing={missingKeys.has(propDef.key)}
+        disabled={disabled}
+        availableReferences={availableReferences}
+        onChange={(value) => dispatch(updateProp({ nodeId: node!.id, key: propDef.key, value }))}
+      />
+    );
+  }
+
   return (
     <div className="property-editor">
       <h2 className="property-editor__title">{title}</h2>
@@ -89,19 +206,27 @@ export function PropertyEditor() {
       {schema.length === 0 ? (
         <p className="property-editor__empty-note">No editable properties.</p>
       ) : (
-        schema.map(({ def: propDef, disabled }) => (
-          <PropertyField
-            key={propDef.key}
-            def={propDef}
-            value={node.props?.[propDef.key] ?? ''}
-            isMissing={missingKeys.has(propDef.key)}
-            disabled={disabled}
-            availableReferences={availableReferences}
-            onChange={(value) =>
-              dispatch(updateProp({ nodeId: node.id, key: propDef.key, value }))
-            }
-          />
-        ))
+        primary.map(renderField)
+      )}
+
+      {advanced.length > 0 && (
+        <div className="property-editor__advanced">
+          <button
+            type="button"
+            className="property-editor__advanced-toggle"
+            data-testid="property-advanced-toggle"
+            aria-expanded={showAdvanced}
+            onClick={() => setShowAdvanced((open) => !open)}
+          >
+            <span aria-hidden="true">{showAdvanced ? '▾' : '▸'}</span> Advanced
+            {!showAdvanced && advancedMissingCount > 0 && (
+              <span className="property-editor__advanced-badge" data-testid="property-advanced-badge">
+                {advancedMissingCount}
+              </span>
+            )}
+          </button>
+          {showAdvanced && advanced.map(renderField)}
+        </div>
       )}
 
       {hidden.length > 0 && (

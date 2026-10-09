@@ -23,7 +23,7 @@ describe('findUnresolvedNodes', () => {
   it('regression: flags a click with an empty required selector', () => {
     const result = findUnresolvedNodes(leaf('click', { selector: '' }));
     expect(result).toEqual([
-      { id: 'click-1', type: 'click', label: 'Click', missing: ['Selector'], missingKeys: ['selector'] },
+      { id: 'click-1', type: 'click', label: 'Click', missing: ['Selector'], missingKeys: ['selector'], severity: 'error' },
     ]);
   });
 
@@ -43,6 +43,7 @@ describe('findUnresolvedNodes', () => {
         label: 'Find',
         missing: ['Descendant Selector'],
         missingKeys: ['target'],
+        severity: 'error',
       },
     ]);
   });
@@ -50,7 +51,7 @@ describe('findUnresolvedNodes', () => {
   it('flags eq when the index is missing', () => {
     const result = findUnresolvedNodes(leaf('eq', { selector: '.items' }));
     expect(result).toEqual([
-      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'] },
+      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'], severity: 'error' },
     ]);
   });
 
@@ -62,7 +63,7 @@ describe('findUnresolvedNodes', () => {
   it('flags contains for a missing required text', () => {
     const result = findUnresolvedNodes(leaf('contains', {}));
     expect(result).toEqual([
-      { id: 'contains-1', type: 'contains', label: 'Contains', missing: ['Text'], missingKeys: ['text'] },
+      { id: 'contains-1', type: 'contains', label: 'Contains', missing: ['Text'], missingKeys: ['text'], severity: 'error' },
     ]);
   });
 
@@ -82,6 +83,7 @@ describe('findUnresolvedNodes', () => {
         label: 'Type',
         missing: ['Selector', 'Value'],
         missingKeys: ['selector', 'value'],
+        severity: 'error',
       },
     ]);
   });
@@ -97,7 +99,7 @@ describe('findUnresolvedNodes', () => {
     // subject — so the traversal does reach into a chain like any other block.
     const result = findUnresolvedNodes(flow);
     expect(result).toEqual([
-      { id: 'get-1', type: 'get', label: 'Get', missing: ['Selector'], missingKeys: ['selector'] },
+      { id: 'get-1', type: 'get', label: 'Get', missing: ['Selector'], missingKeys: ['selector'], severity: 'error' },
     ]);
   });
 
@@ -124,7 +126,7 @@ describe('findUnresolvedNodes', () => {
     // Regression guard for the flip side: outside a chain nothing supplies a
     // subject, so the pre-existing requirement is unchanged.
     expect(findUnresolvedNodes(flow)).toEqual([
-      { id: 'click-1', type: 'click', label: 'Click', missing: ['Selector'], missingKeys: ['selector'] },
+      { id: 'click-1', type: 'click', label: 'Click', missing: ['Selector'], missingKeys: ['selector'], severity: 'error' },
     ]);
   });
 
@@ -138,14 +140,14 @@ describe('findUnresolvedNodes', () => {
     // Only `selector` is context-hidden; `index` is intrinsic to `eq`, so it must
     // still be reported (hiding is per-field metadata, not per-node).
     expect(findUnresolvedNodes(flow)).toEqual([
-      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'] },
+      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'], severity: 'error' },
     ]);
   });
 
   it('Phase 1: flags a number field with a non-numeric value, not just an empty one', () => {
     const result = findUnresolvedNodes(leaf('eq', { selector: '.items', index: 'abc' }));
     expect(result).toEqual([
-      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'] },
+      { id: 'eq-1', type: 'eq', label: 'Eq', missing: ['Index'], missingKeys: ['index'], severity: 'error' },
     ]);
   });
 
@@ -177,7 +179,7 @@ describe('findUnresolvedNodes', () => {
     };
     const result = findUnresolvedNodes(flow);
     expect(result).toEqual([
-      { id: 'check-1', type: 'check', label: 'Check', missing: ['Selector'], missingKeys: ['selector'] },
+      { id: 'check-1', type: 'check', label: 'Check', missing: ['Selector'], missingKeys: ['selector'], severity: 'error' },
     ]);
   });
 
@@ -190,6 +192,7 @@ describe('findUnresolvedNodes', () => {
         label: 'Within',
         missing: ['Block body is empty'],
         missingKeys: ['__body'],
+        severity: 'warning',
       },
     ]);
   });
@@ -213,6 +216,11 @@ describe('findUnresolvedNodes', () => {
         label: 'Each',
         missing: ['Selector', 'Block body is empty'],
         missingKeys: ['selector', '__body'],
+        // Severity (Phase 6): a node with both an error-level issue (missing
+        // required prop) and a warning-level one (empty body) reports the
+        // worst of the two — the user must fix the selector regardless, so
+        // the entry can never read as "merely advisory".
+        severity: 'error',
       },
     ]);
   });
@@ -226,6 +234,7 @@ describe('findUnresolvedNodes', () => {
         label: 'Session',
         missing: ['Block body is empty'],
         missingKeys: ['__body'],
+        severity: 'warning',
       },
     ]);
   });
@@ -259,7 +268,7 @@ describe('findUnresolvedNodes — Phase 5 multi-slot composition (if)', () => {
 
   it('flags a missing condition, the same generic required-field rule as any other node', () => {
     expect(findUnresolvedNodes(ifWithSlots(''))).toEqual([
-      { id: 'if-1', type: 'if', label: 'If', missing: ['Condition'], missingKeys: ['condition'] },
+      { id: 'if-1', type: 'if', label: 'If', missing: ['Condition'], missingKeys: ['condition'], severity: 'error' },
     ]);
   });
 
@@ -282,6 +291,7 @@ describe('findUnresolvedNodes — Phase 5 multi-slot composition (if)', () => {
         label: 'If',
         missing: ['Invalid slot placement'],
         missingKeys: ['__slot'],
+        severity: 'error',
       },
     ]);
   });
@@ -295,6 +305,7 @@ describe('findUnresolvedNodes — Phase 5 multi-slot composition (if)', () => {
         label: 'If',
         missing: ['Invalid slot placement'],
         missingKeys: ['__slot'],
+        severity: 'error',
       },
     ]);
   });
@@ -314,6 +325,7 @@ describe('findUnresolvedNodes — Phase 5 multi-slot composition (if)', () => {
         label: 'Test Case',
         missing: ['Invalid slot placement'],
         missingKeys: ['__slot'],
+        severity: 'error',
       },
     ]);
   });
@@ -334,6 +346,7 @@ describe('findUnresolvedNodes — Phase 5 forEach / customCommand regression', (
         label: 'For Each',
         missing: ['Array / Expression', 'Item binding'],
         missingKeys: ['source', 'itemAs'],
+        severity: 'error',
       },
     ]);
   });
@@ -347,6 +360,7 @@ describe('findUnresolvedNodes — Phase 5 forEach / customCommand regression', (
         label: 'For Each',
         missing: ['Block body is empty'],
         missingKeys: ['__body'],
+        severity: 'warning',
       },
     ]);
   });
@@ -363,7 +377,7 @@ describe('findUnresolvedNodes — Phase 5 forEach / customCommand regression', (
 
   it('flags a customCommand missing its method name', () => {
     expect(findUnresolvedNodes(leaf('customCommand', {}))).toEqual([
-      { id: 'customCommand-1', type: 'customCommand', label: 'Custom Command', missing: ['Command Name'], missingKeys: ['commandName'] },
+      { id: 'customCommand-1', type: 'customCommand', label: 'Custom Command', missing: ['Command Name'], missingKeys: ['commandName'], severity: 'error' },
     ]);
   });
 
@@ -386,7 +400,7 @@ describe('findUnresolvedNodes — Phase 5 reusable-flow invocation (dynamic argu
   it('flags a missing flowId when no flow has been selected yet', () => {
     const flow: FlowNode = { id: 'invoke-1', type: 'flowInvocation', props: {} };
     expect(findUnresolvedNodes(flow, undefined, [LOGIN])).toEqual([
-      { id: 'invoke-1', type: 'flowInvocation', label: 'Reusable Flow', missing: ['Flow'], missingKeys: ['flowId'] },
+      { id: 'invoke-1', type: 'flowInvocation', label: 'Reusable Flow', missing: ['Flow'], missingKeys: ['flowId'], severity: 'error' },
     ]);
   });
 
@@ -399,6 +413,7 @@ describe('findUnresolvedNodes — Phase 5 reusable-flow invocation (dynamic argu
         label: 'Reusable Flow',
         missing: ['Username', 'Password'],
         missingKeys: ['username', 'password'],
+        severity: 'error',
       },
     ]);
   });
@@ -412,7 +427,7 @@ describe('findUnresolvedNodes — Phase 5 reusable-flow invocation (dynamic argu
     };
     const flow: FlowNode = { id: 'invoke-1', type: 'flowInvocation', props: { flowId: 'wait-n', ms: 'soon' } };
     expect(findUnresolvedNodes(flow, undefined, [NUMERIC])).toEqual([
-      { id: 'invoke-1', type: 'flowInvocation', label: 'Reusable Flow', missing: ['Milliseconds'], missingKeys: ['ms'] },
+      { id: 'invoke-1', type: 'flowInvocation', label: 'Reusable Flow', missing: ['Milliseconds'], missingKeys: ['ms'], severity: 'error' },
     ]);
   });
 

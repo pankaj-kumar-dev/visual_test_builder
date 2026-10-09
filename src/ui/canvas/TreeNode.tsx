@@ -24,15 +24,26 @@
  */
 
 import type { DragEvent, MouseEvent } from 'react';
-import { Fragment, memo, useEffect, useRef } from 'react';
+import { Fragment, memo, useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import type { FlowNode } from '../../domain/types';
 import { getSchema } from '../../engine/nodeContext';
+import { renderSummaryTemplate } from '../../engine/nodeSummary';
 import { resolveBindingNames } from '../../engine/propValue';
 import { getRegistry } from '../../registry';
-import { deleteNode, selectNode, toggleNodeCollapse } from '../../state/builderSlice';
+import {
+  deleteNode,
+  duplicateNode,
+  moveNodeBy,
+  saveAsReusableFlow,
+  selectNode,
+  selectRange,
+  toggleMultiSelect,
+  toggleNodeCollapse,
+} from '../../state/builderSlice';
+import { SaveAsFlowDialog } from '../common/SaveAsFlowDialog';
 import { setActiveDrag, setDragPayload } from '../dnd';
-import { SiblingDropZone } from './SiblingDropZone';
+import { InsertionGap } from './InsertionGap';
 import { useNodeDrop } from './useNodeDrop';
 
 interface TreeNodeProps {
@@ -50,7 +61,14 @@ const DROP_CLASS: Record<string, string> = {
 
 function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps) {
   const dispatch = useAppDispatch();
-  const isSelected = useAppSelector((state) => state.selectedNodeId === node.id);
+  // Phase 8: selected when it's this row's own `selectedNodeId` (the ordinary
+  // single-selection case, multi-select empty) *or* it's a member of an
+  // active multi-selection — either is "selected" for highlighting purposes,
+  // the two states look identical on a row.
+  const isSelected = useAppSelector((state) => {
+    const hasMulti = Object.keys(state.multiSelectedIds).length > 0;
+    return hasMulti ? !!state.multiSelectedIds[node.id] : state.selectedNodeId === node.id;
+  });
   // One boolean per row: an unrelated node's collapse toggle re-renders only that
   // row, not the whole tree.
   const isCollapsed = useAppSelector((state) => !!state.collapsedNodeIds[node.id]);
@@ -58,6 +76,16 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
   const missing = unresolvedById.get(node.id);
   const semanticIssue = semanticIssueById.get(node.id);
   const rowRef = useRef<HTMLDivElement>(null);
+  // Phase 6: node actions menu (⋮) — Duplicate / Move up / Move down / Delete.
+  // Purely local presentation state, same precedent as the palette's search
+  // query/collapsed-categories: nothing outside this row needs to know the
+  // menu is open.
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Phase 8: the "Save as reusable flow" name-prompt dialog, opened from this
+  // row's own menu — scoped to just this node, independent of whatever else
+  // may be selected elsewhere on the canvas.
+  const [isSavingFlow, setIsSavingFlow] = useState(false);
 
   const registry = getRegistry();
   const def = registry.getBlock(node.type) ?? registry.getFunction(node.type);
@@ -71,14 +99,21 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
     ? labelSourceValue.charAt(0).toUpperCase() + labelSourceValue.slice(1)
     : (def?.label ?? node.type);
 
-  // A one-line hint of what this node is configured to do — the first property in
-  // schema order that has a value. Generic on purpose: it is what tells fifty
-  // "Test Case" rows apart in a large flow without a per-command rendering rule.
-  // Skipped for a `labelFromProp` node (Phase 5's `slot`): its label already
-  // *is* that same prop value, so the hint would only repeat it right next to it.
+  // A one-line hint of what this node is configured to do. Phase 6: a node
+  // whose registry def declares a curated `summaryTemplate` (e.g. Type's
+  // `"{{selector}} → \"{{value}}\""`) gets that reading as a small sentence
+  // instead of just its first configured field — falling back to the
+  // original generic rule (first property in schema order that has a value)
+  // whenever there's no template, or its placeholders aren't all filled in
+  // yet. Generic on purpose: it is what tells fifty "Test Case" rows apart in
+  // a large flow without a per-command rendering rule. Skipped for a
+  // `labelFromProp` node (Phase 5's `slot`): its label already *is* that same
+  // prop value, so the hint would only repeat it right next to it.
+  const summaryTemplate = def && 'summaryTemplate' in def ? def.summaryTemplate : undefined;
   const detail = labelSourceValue
     ? undefined
-    : getSchema(node.type, registry)
+    : (summaryTemplate && renderSummaryTemplate(summaryTemplate, node.props)) ||
+      getSchema(node.type, registry)
         .map((prop) => node.props?.[prop.key]?.trim())
         .find((value) => !!value);
 
@@ -95,7 +130,17 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
 
   const childCount = node.children?.length ?? 0;
   const isCollapsible = childCount > 0;
-  const showChildren = isCollapsible && !isCollapsed;
+  // Phase 7: a container that *could* hold children (its registry def declares
+  // `allowedChildren`) always gets an insertion point, even with zero children
+  // today — otherwise the only way to add a first child would be dragging
+  // directly onto the row. `childCount > 0` guards `isCollapsed` here (rather
+  // than relying on `isCollapsible` alone) because the collapse toggle only
+  // ever renders once there's something to collapse; without this guard, a
+  // container whose last child was just deleted while collapsed would be
+  // stuck hiding its own (now-empty) insertion point with no chevron left to
+  // un-collapse it.
+  const canHaveChildren = !!def && 'allowedChildren' in def && def.allowedChildren.length > 0;
+  const showChildren = canHaveChildren && !(isCollapsed && childCount > 0);
 
   // Bring the selected row into view. `block: 'nearest'` makes this a no-op when the
   // row is already visible, so ordinary clicking doesn't move the canvas; it only
@@ -105,15 +150,80 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
     if (isSelected) rowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [isSelected]);
 
+  // Close the menu on an outside click (it is not a modal, so no focus trap —
+  // same "basic, non-trapping" precedent as the code drawer's own Escape
+  // handling) — never on a click inside it, which each item handler already
+  // closes explicitly after dispatching.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    function onDocumentClick(event: globalThis.MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setIsMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDocumentClick);
+    return () => document.removeEventListener('mousedown', onDocumentClick);
+  }, [isMenuOpen]);
+
   function handleSelect(event: MouseEvent<HTMLDivElement>) {
     // Stop the click from reaching the canvas background (which clears selection).
     event.stopPropagation();
-    dispatch(selectNode(node.id));
+    // Phase 8: Shift+click selects the visual range from the anchor to this
+    // row (`SELECT_RANGE`); Ctrl/Cmd+click toggles just this row into/out of
+    // the multi-selection (`TOGGLE_MULTI_SELECT`) — the same two file-manager
+    // conventions, kept as two distinct actions rather than one "modifier
+    // click" branch, since a stray Shift+Ctrl+click should still behave like
+    // a predictable range-select, not a confusing hybrid. A plain click
+    // stays exactly what it always was: an exclusive single selection.
+    if (event.shiftKey) {
+      dispatch(selectRange(node.id));
+    } else if (event.ctrlKey || event.metaKey) {
+      dispatch(toggleMultiSelect(node.id));
+    } else {
+      dispatch(selectNode(node.id));
+    }
   }
 
   function handleDelete(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     dispatch(deleteNode({ nodeId: node.id }));
+  }
+
+  function handleToggleMenu(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setIsMenuOpen((open) => !open);
+  }
+
+  function handleDuplicate(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setIsMenuOpen(false);
+    dispatch(duplicateNode({ nodeId: node.id }));
+  }
+
+  function handleMoveUp(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setIsMenuOpen(false);
+    dispatch(moveNodeBy({ nodeId: node.id, delta: -1 }));
+  }
+
+  function handleMoveDown(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setIsMenuOpen(false);
+    dispatch(moveNodeBy({ nodeId: node.id, delta: 1 }));
+  }
+
+  function handleMenuDelete(event: MouseEvent<HTMLButtonElement>) {
+    setIsMenuOpen(false);
+    handleDelete(event);
+  }
+
+  function handleOpenSaveFlow(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setIsMenuOpen(false);
+    setIsSavingFlow(true);
+  }
+
+  function handleSaveFlow(name: string) {
+    dispatch(saveAsReusableFlow({ nodeIds: [node.id], name }));
+    setIsSavingFlow(false);
   }
 
   function handleToggleCollapse(event: MouseEvent<HTMLButtonElement>) {
@@ -223,6 +333,38 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
             </span>
           )}
         </span>
+        <div className="tree-node__menu-wrap" ref={menuRef}>
+          <button
+            type="button"
+            className="tree-node__menu-trigger"
+            data-testid="node-menu-trigger"
+            onClick={handleToggleMenu}
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            aria-label={`${label} actions`}
+          >
+            ⋮
+          </button>
+          {isMenuOpen && (
+            <div className="tree-node__menu" role="menu" data-testid="node-menu">
+              <button type="button" role="menuitem" className="tree-node__menu-item" data-testid="node-menu-duplicate" onClick={handleDuplicate}>
+                Duplicate
+              </button>
+              <button type="button" role="menuitem" className="tree-node__menu-item" data-testid="node-menu-move-up" onClick={handleMoveUp}>
+                Move up
+              </button>
+              <button type="button" role="menuitem" className="tree-node__menu-item" data-testid="node-menu-move-down" onClick={handleMoveDown}>
+                Move down
+              </button>
+              <button type="button" role="menuitem" className="tree-node__menu-item" data-testid="node-menu-save-flow" onClick={handleOpenSaveFlow}>
+                Save as reusable flow
+              </button>
+              <button type="button" role="menuitem" className="tree-node__menu-item tree-node__menu-item--danger" data-testid="node-menu-delete" onClick={handleMenuDelete}>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           className="tree-node__delete"
@@ -233,15 +375,22 @@ function TreeNodeView({ node, unresolvedById, semanticIssueById }: TreeNodeProps
           ×
         </button>
       </div>
+      {isSavingFlow && (
+        <SaveAsFlowDialog
+          nodeCount={1}
+          onSave={handleSaveFlow}
+          onCancel={() => setIsSavingFlow(false)}
+        />
+      )}
       {showChildren ? (
         <div className="tree-node__children">
           {node.children?.map((child, index) => (
             <Fragment key={child.id}>
-              <SiblingDropZone parent={node} beforeIndex={index} />
+              <InsertionGap parent={node} beforeIndex={index} />
               <TreeNode node={child} unresolvedById={unresolvedById} semanticIssueById={semanticIssueById} />
             </Fragment>
           ))}
-          <SiblingDropZone parent={node} beforeIndex={childCount} />
+          <InsertionGap parent={node} beforeIndex={childCount} />
         </div>
       ) : null}
     </div>

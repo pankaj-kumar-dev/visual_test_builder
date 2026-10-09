@@ -56,6 +56,18 @@ export function PropertyField({
     event.target.value = ''; // picker itself has no persistent selection — it's an insert action
   }
 
+  // Phase 7: a `selector`-type field's convention picker — a typing shortcut,
+  // never a second stored value. It only prefills when the field is still
+  // empty (never overwrites what the user already typed), and it has no
+  // persistent selection of its own, the same "insert action, not a value"
+  // shape as the reference picker above.
+  function handlePickSelectorKind(event: ChangeEvent<HTMLSelectElement>) {
+    const prefix = event.target.value;
+    event.target.value = '';
+    if (!prefix || value.trim() !== '') return;
+    onChange(prefix);
+  }
+
   return (
     <label className="property-field">
       <span className="property-field__label">
@@ -87,6 +99,23 @@ export function PropertyField({
           disabled={disabled}
           onChange={handleChange}
         />
+      )}
+
+      {def.type === 'selector' && (
+        <select
+          className="property-field__selector-kind"
+          data-testid={`prop-${def.key}-selector-kind`}
+          aria-label={`Selector convention for ${def.label}`}
+          value=""
+          disabled={disabled}
+          onChange={handlePickSelectorKind}
+        >
+          <option value="">Pick a convention…</option>
+          <option value="#">id (#)</option>
+          <option value=".">class (.)</option>
+          <option value="[data-testid=]">data-testid</option>
+          <option value="[data-cy=]">data-cy</option>
+        </select>
       )}
 
       {def.acceptsReference && availableReferences.length > 0 && (

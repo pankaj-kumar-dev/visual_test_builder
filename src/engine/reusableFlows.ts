@@ -118,6 +118,29 @@ export function expandInvocation(node: FlowNode, flows: ReusableFlowDef[]): Flow
   return def.body.map((bodyNode) => substituteParams(bodyNode, args, def.params));
 }
 
+/**
+ * Phase 8 (reusable-flow authoring): a unique `ReusableFlowDef.id` derived
+ * from a user-entered name — lowercase, non-alphanumeric runs collapsed to a
+ * single hyphen, trimmed of leading/trailing hyphens, falling back to
+ * `"flow"` for a name with no alphanumeric characters at all. A collision
+ * against `existingIds` gets `-2`, `-3`, … appended until it's unique, the
+ * same "never silently overwrite" rule the rest of the app applies to
+ * identity (e.g. `generateId` for node ids).
+ */
+export function slugifyFlowName(name: string, existingIds: readonly string[]): string {
+  const base =
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'flow';
+
+  if (!existingIds.includes(base)) return base;
+  let suffix = 2;
+  while (existingIds.includes(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
 /** Every flow id a definition's body invokes, in document order, one level deep. */
 function invokedFlowIds(body: FlowNode[]): string[] {
   const ids: string[] = [];
@@ -130,6 +153,34 @@ function invokedFlowIds(body: FlowNode[]): string[] {
   };
   body.forEach(walk);
   return ids;
+}
+
+/**
+ * Every distinct flow id invoked anywhere in `root`'s tree, in first-seen
+ * document order (Phase 9, "compile-ready" export —
+ * `engine/buildSpec.ts` uses this to know exactly which commands the spec
+ * actually needs, so the exported `commands.ts` never defines one that isn't
+ * used, and never omits one that is). Unlike `invokedFlowIds` above (a single
+ * definition's own body, used only by cycle detection), this walks a live
+ * canvas flow tree and de-duplicates — the same invocation can appear more
+ * than once in a real test.
+ */
+export function collectInvokedFlowIds(root: FlowNode | null): string[] {
+  if (root === null) return [];
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  const walk = (node: FlowNode) => {
+    if (node.type === FLOW_INVOCATION_TYPE) {
+      const id = node.props?.[FLOW_ID_KEY];
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ordered.push(id);
+      }
+    }
+    node.children?.forEach(walk);
+  };
+  walk(root);
+  return ordered;
 }
 
 /**

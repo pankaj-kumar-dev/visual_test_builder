@@ -91,6 +91,23 @@ function cardinalityIssues(
   return { missing, missingKeys };
 }
 
+/**
+ * Phase 6: how seriously the validation panel should treat this node's
+ * structural issue(s) — mirrors `engine/references.ts`'s
+ * `SemanticIssueSeverity`/`SEVERITY_BY_KIND` pattern, now applied to
+ * structural checks too (they previously had no severity concept at all and
+ * were always treated as errors downstream). `'error'` means a required
+ * field is genuinely missing or the structure is invalid (bad slot
+ * placement, a cardinality rule violated); `'warning'` means the generated
+ * code is still valid, just pointless — an empty block body or empty
+ * required slot, per this file's own long-standing "visible warning, not a
+ * hard generation error" rule for those two checks (see `childComposition:
+ * 'block'` and `requiredSlots` above). A node with both kinds of issue at
+ * once reports `'error'`, since at least one of its problems does need
+ * fixing regardless of the other.
+ */
+export type UnresolvedSeverity = 'error' | 'warning';
+
 export interface UnresolvedNode {
   /** The node's own id — lets consumers match this entry back to a specific
    * FlowNode instance (for canvas/property highlighting), not just its type. */
@@ -101,6 +118,7 @@ export interface UnresolvedNode {
   missing: string[];
   /** PropDef keys of the missing required props, for field-level highlighting. */
   missingKeys: string[];
+  severity: UnresolvedSeverity;
 }
 
 export function findUnresolvedNodes(
@@ -152,13 +170,14 @@ export function findUnresolvedNodes(
         'childCardinality' in def ? def.childCardinality : undefined,
       );
 
-      if (
-        missingProps.length > 0 ||
-        isEmptyBlock ||
-        invalidSlot ||
-        requiredSlotIssues.missing.length > 0 ||
-        cardinality.missing.length > 0
-      ) {
+      // Error-level: a genuinely missing/invalid value or a broken structure.
+      // Warning-level (by this file's own long-standing rule above): a body
+      // or slot that's merely empty, not wrong. Any error-level issue wins.
+      const hasErrorIssue =
+        missingProps.length > 0 || invalidSlot || cardinality.missing.length > 0;
+      const hasWarningIssue = isEmptyBlock || requiredSlotIssues.missing.length > 0;
+
+      if (hasErrorIssue || hasWarningIssue) {
         result.push({
           id: node.id,
           type: node.type,
@@ -177,6 +196,7 @@ export function findUnresolvedNodes(
             ...requiredSlotIssues.missingKeys,
             ...cardinality.missingKeys,
           ],
+          severity: hasErrorIssue ? 'error' : 'warning',
         });
       }
     }

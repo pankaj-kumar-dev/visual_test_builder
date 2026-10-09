@@ -21,11 +21,53 @@ import {
   numberToken,
   resolveBindingNames,
 } from './propValue';
+import { markFirstLine } from './nodeMarkers';
 import { expandInvocation, findFlowDef } from './reusableFlows';
 import { findSlotChild, slotHasContent } from './slots';
 
 /** Either kind of node definition — wherever a chain fragment's def comes from. */
 type NodeDef = StructuralNodeDef | CommandNodeDef;
+
+/**
+ * Phase 9 ("compile-ready" export, builder UX roadmap): generation-mode
+ * flags threaded through the whole recursive walk as one small options
+ * object rather than a growing list of positional parameters. Every existing
+ * call site (the ordinary live preview, `processFlow`) omits this entirely —
+ * `{}` everywhere defaults both flags to their original, byte-identical
+ * behavior, which is exactly what the full existing golden-flow test suite
+ * already verifies.
+ *
+ *  - `paramNames` — populated only by `generateReusableFlowCommand`, when
+ *    generating a reusable flow's own *definition* body (not an invocation of
+ *    one): a prop value that is exactly one of these parameter's `{{token}}`
+ *    becomes that parameter's bare name, a real unquoted JS argument
+ *    reference, instead of literal escaped text (see `resolveProps`).
+ *  - `useCommands` — populated only by `processFlowAsSpec`, when generating
+ *    the compile-ready export's main spec: a `flowInvocation` node emits
+ *    `cy.<flowId>(args);` (a call to the command `generateReusableFlowCommand`
+ *    emits separately) instead of inlining the expanded body — see
+ *    `generateNode`'s reuse dispatch.
+ *  - `annotateNodeIds` — populated only alongside `useCommands`, by
+ *    `processFlowAnnotatedSpec` (used solely by the syntax-compile-check
+ *    pipeline, `engine/compileCheck.ts`): appends a trailing, line-count-safe
+ *    sentinel comment to each node's own opening line
+ *    (`nodeMarkers.ts`'s `markFirstLine`), so a compiler diagnostic's line
+ *    number can be mapped back to the responsible node. Never set for
+ *    anything the user actually sees — the displayed code always has these
+ *    stripped (`nodeMarkers.ts`'s `stripNodeMarkers`).
+ *
+ * All three are independent, though only `useCommands` + `annotateNodeIds`
+ * are ever set together in current usage: a reusable flow's own body
+ * generation (`paramNames` set) always keeps the other two false, so a flow
+ * invoking *another* flow from within its own body still inlines that nested
+ * invocation — out of scope for the unquoted-parameter treatment, documented
+ * at `generateNode`'s reuse dispatch below.
+ */
+interface GenMode {
+  paramNames?: readonly string[];
+  useCommands?: boolean;
+  annotateNodeIds?: boolean;
+}
 
 /** Indentation unit applied to each nesting level (HLD §12 example output). */
 const INDENT = '  ';
@@ -80,6 +122,21 @@ function escapeSingleQuoted(value: string): string {
 }
 
 /**
+ * Phase 9 (reusable flows as real Cypress custom commands): whether `value`
+ * is *exactly* one `{{paramKey}}` token referencing a declared parameter —
+ * not a token embedded within surrounding literal text. Every bundled
+ * reusable-flow body happens to use parameters this way already (a prop's
+ * whole value is the token, e.g. `"value": "{{username}}"`), so this
+ * deliberately narrow check covers the real shape without having to support
+ * splicing a bare identifier into the middle of an arbitrary string.
+ */
+function exactParamToken(value: string, paramNames: readonly string[]): string | null {
+  const match = /^\{\{(\w+)\}\}$/.exec(value.trim());
+  if (!match) return null;
+  return paramNames.includes(match[1]) ? match[1] : null;
+}
+
+/**
  * Interpolate a node's props into its code template, using `schema` (the
  * node's resolved PropDef list — engine/nodeContext.ts's `getSchema`) to know
  * each key's type and required-ness.
@@ -101,11 +158,20 @@ function escapeSingleQuoted(value: string): string {
  * placeholder either way — the final pass below strips any that are still bare
  * (e.g. a key altogether absent from `props`, or a non-numeric optional field) —
  * so an optional gap silently disappears instead of leaking `{{key}}` into output.
+ *
+ * `paramNames` (Phase 9) is empty for every existing caller (`processFlow`'s
+ * ordinary inline generation never passes it, so this is byte-identical to
+ * before for all of it) — it's populated only when generating a reusable
+ * flow's *command function body* (`generateReusableFlowCommand`, below),
+ * where a prop value that's exactly one declared parameter's `{{token}}`
+ * must emit that parameter's bare name (a real JS function argument, unquoted)
+ * instead of being treated as missing/literal text.
  */
 function resolveProps(
   template: string,
   node: FlowNode,
   schema: PropDef[],
+  paramNames: readonly string[] = [],
 ): string {
   const props = node.props ?? {};
   const schemaByKey = new Map(schema.map((def) => [def.key, def]));
@@ -115,11 +181,28 @@ function resolveProps(
       return slotHasContent(node, key.slice('slot:'.length)) ? inner : '';
     }
     const def = schemaByKey.get(key);
+    if (def && paramNames.length > 0 && exactParamToken(props[key] ?? '', paramNames)) return inner;
     return def && isValuePresent(def, props[key]) ? inner : '';
   });
 
   for (const [key, value] of Object.entries(props)) {
     const def = schemaByKey.get(key);
+    if (paramNames.length > 0) {
+      const paramName = exactParamToken(value, paramNames);
+      if (paramName !== null) {
+        // Strip the template's own surrounding quotes when present (the
+        // common case: a normally-quoted text/number field's template always
+        // wraps `{{key}}` in single quotes, e.g. `type`'s `.type('{{value}}')`)
+        // so the emitted reference is a real, unquoted JS identifier —
+        // `type(username)`, not `type('username')`. A template that places
+        // the placeholder unquoted to begin with (an `expression`-type field)
+        // is unaffected: the first pass simply finds nothing to strip, and
+        // the second substitutes the bare placeholder as-is either way.
+        code = code.split(`'{{${key}}}'`).join(paramName);
+        code = code.replaceAll(`{{${key}}}`, paramName);
+        continue;
+      }
+    }
     if (def?.type === 'number') {
       const token = numberToken(value);
       if (token !== null) code = code.replaceAll(`{{${key}}}`, token);
@@ -181,10 +264,11 @@ function renderBody(
   reg: Registry,
   flows: ReusableFlowDef[],
   visiting: readonly string[],
+  mode: GenMode = {},
 ): string {
   const schema = getSchema(node.type, reg);
   const childrenCode = node.children?.length
-    ? node.children.map((child) => generateNode(child, reg, flows, visiting)).join('\n')
+    ? node.children.map((child) => generateNode(child, reg, flows, visiting, mode)).join('\n')
     : '';
   const params = resolveBindingNames(
     'bindsParameters' in def ? def.bindsParameters : undefined,
@@ -192,7 +276,7 @@ function renderBody(
     schema,
   ).join(', ');
 
-  let code = resolveProps(template, node, schema);
+  let code = resolveProps(template, node, schema, mode.paramNames ?? []);
   code = code.replaceAll(CHILDREN_PLACEHOLDER, indent(childrenCode));
   code = code.replaceAll(PARAMS_PLACEHOLDER, params);
   // Phase 5: multi-slot composition — each `{{slot:name}}` becomes that named
@@ -203,7 +287,7 @@ function renderBody(
     const slotChild = findSlotChild(node, slotName);
     const innerChildren = slotChild?.children ?? [];
     const inner = innerChildren.length
-      ? innerChildren.map((child) => generateNode(child, reg, flows, visiting)).join('\n')
+      ? innerChildren.map((child) => generateNode(child, reg, flows, visiting, mode)).join('\n')
       : '';
     return indent(inner);
   });
@@ -223,11 +307,12 @@ function generateChainFragment(
   reg: Registry,
   flows: ReusableFlowDef[],
   visiting: readonly string[],
+  mode: GenMode = {},
 ): string {
   const def = (reg.getFunction(node.type) ?? reg.getBlock(node.type))!;
   const template =
     def.chainRole === 'root' ? stripTrailingSemicolon(def.codeTemplate!) : (def.chainTemplate ?? '');
-  return renderBody(template, node, def, reg, flows, visiting);
+  return renderBody(template, node, def, reg, flows, visiting, mode);
 }
 
 /**
@@ -255,6 +340,7 @@ function generateChain(
   reg: Registry,
   flows: ReusableFlowDef[],
   visiting: readonly string[],
+  mode: GenMode = {},
 ): string {
   const children = node.children ?? [];
   const issues = validateChain(children, reg);
@@ -262,7 +348,7 @@ function generateChain(
     return `// [Invalid chain] — ${issues[0]}`;
   }
 
-  const fragments = children.map((child) => generateChainFragment(child, reg, flows, visiting));
+  const fragments = children.map((child) => generateChainFragment(child, reg, flows, visiting, mode));
   return `${joinChainFragments(fragments)};`;
 }
 
@@ -294,35 +380,70 @@ function generateReuseInvocation(
   return expanded.map((child) => generateNode(child, reg, flows, nextVisiting)).join('\n');
 }
 
-/** Recursively generate the code for a single node and its subtree. */
+/**
+ * Generate a reusable-flow invocation as a call to its own
+ * `Cypress.Commands.add`-defined command (Phase 9's `useCommands` mode)
+ * instead of inlining the expansion — `cy.login('testuser', 'hunter2');`
+ * rather than the 4 statements that command's body contains. The command
+ * definition itself is generated separately, once per distinct flow actually
+ * used (`generateReusableFlowCommand`, `engine/buildSpec.ts`), not here.
+ */
+function generateReuseInvocationAsCommand(node: FlowNode, flows: ReusableFlowDef[]): string {
+  const flowId = node.props?.flowId;
+  const def = findFlowDef(flowId, flows);
+  if (!def) {
+    return `// [Unknown reusable flow: ${flowId || '(none selected)'}]`;
+  }
+  return `cy.${def.id}(${reusableFlowCallArgs(node, def)});`;
+}
+
+/**
+ * Recursively generate the code for a single node and its subtree.
+ *
+ * `mode` (Phase 9, see `GenMode` above) is `{}` for `processFlow`'s ordinary
+ * inline generation — every branch below behaves exactly as it always has.
+ * A `flowInvocation` encountered while `mode.paramNames` is non-empty still
+ * expands inline regardless of `mode.useCommands` (`generateReuseInvocation`
+ * ignores `mode` entirely) — a reusable flow whose own body invokes *another*
+ * reusable flow is out of scope for both Phase 9 treatments; it keeps
+ * today's inlining behavior.
+ */
 function generateNode(
   node: FlowNode,
   reg: Registry,
   flows: ReusableFlowDef[],
   visiting: readonly string[],
+  mode: GenMode = {},
 ): string {
   const def = reg.getBlock(node.type) ?? reg.getFunction(node.type);
 
-  // Unknown node type (e.g. a stale export). Skip it with a placeholder comment
-  // (HLD §16, "Unknown Node Type").
+  let code: string;
   if (def === null) {
-    return `// [Unknown node: ${node.type}] — not found in registry`;
+    // Unknown node type (e.g. a stale export). Skip it with a placeholder
+    // comment (HLD §16, "Unknown Node Type").
+    code = `// [Unknown node: ${node.type}] — not found in registry`;
+  } else if ('childComposition' in def && def.childComposition === 'chain') {
+    // A chain composes its children into one subject expression instead of
+    // the ordinary independent-statement join below (Phase 2, engine/chain.ts).
+    code = generateChain(node, reg, flows, visiting, mode);
+  } else if ('childComposition' in def && def.childComposition === 'reuse') {
+    // A reuse-composition node (Phase 5) expands a stored definition instead
+    // of substituting its own (empty) codeTemplate — or, in `useCommands`
+    // mode, calls the command generated separately for it. Both composition
+    // dispatches above are driven by registry metadata, never by
+    // `node.type` — the same shape, not a per-command branch.
+    code =
+      mode.useCommands && !mode.paramNames?.length
+        ? generateReuseInvocationAsCommand(node, flows)
+        : generateReuseInvocation(node, reg, flows, visiting);
+  } else {
+    code = renderBody(def.codeTemplate!, node, def, reg, flows, visiting, mode);
   }
 
-  // A chain composes its children into one subject expression instead of the
-  // ordinary independent-statement join below (Phase 2, engine/chain.ts). A
-  // reuse-composition node (Phase 5) expands a stored definition instead of
-  // substituting its own (empty) codeTemplate. Both are single, generic
-  // composition-mode dispatches — driven by registry metadata, never by
-  // `node.type` — the same shape, not a per-command branch.
-  if ('childComposition' in def && def.childComposition === 'chain') {
-    return generateChain(node, reg, flows, visiting);
-  }
-  if ('childComposition' in def && def.childComposition === 'reuse') {
-    return generateReuseInvocation(node, reg, flows, visiting);
-  }
-
-  return renderBody(def.codeTemplate!, node, def, reg, flows, visiting);
+  // Phase 9: tag this node's own opening line with its id for the syntax
+  // compile-checker's diagnostic-to-node mapping — never on for anything the
+  // user is shown (see `GenMode.annotateNodeIds`'s doc comment above).
+  return mode.annotateNodeIds ? markFirstLine(code, node.id) : code;
 }
 
 /**
@@ -342,4 +463,88 @@ export function processFlow(
 ): string {
   if (root === null) return '';
   return generateNode(root, reg, flows, []);
+}
+
+/**
+ * Compile a Flow JSON tree the same way `processFlow` does, except every
+ * `flowInvocation` node emits a call to its own custom command
+ * (`cy.<flowId>(args);`) instead of inlining the expansion (Phase 9's
+ * `useCommands` mode, see `GenMode` above) — the main spec half of the
+ * "compile-ready" export; `engine/buildSpec.ts` pairs this with
+ * `generateReusableFlowCommand` for each flow actually used, so the full
+ * export is always self-contained (every command it calls is also defined).
+ */
+export function processFlowAsSpec(
+  root: FlowNode | null,
+  reg: Registry = getRegistry(),
+  flows: ReusableFlowDef[] = getDefaultReusableFlows(),
+): string {
+  if (root === null) return '';
+  return generateNode(root, reg, flows, [], { useCommands: true });
+}
+
+/**
+ * The same output as `processFlowAsSpec`, with every node's opening line
+ * tagged by a trailing id marker (Phase 9's `annotateNodeIds`, see
+ * `nodeMarkers.ts`) — used only by `engine/compileCheck.ts`'s syntax checker
+ * to map a diagnostic's line number back to the node responsible. Never
+ * shown to the user as-is; strip markers first (`nodeMarkers.ts`'s
+ * `stripNodeMarkers`) for display.
+ */
+export function processFlowAnnotatedSpec(
+  root: FlowNode | null,
+  reg: Registry = getRegistry(),
+  flows: ReusableFlowDef[] = getDefaultReusableFlows(),
+): string {
+  if (root === null) return '';
+  return generateNode(root, reg, flows, [], { useCommands: true, annotateNodeIds: true });
+}
+
+/**
+ * Generate a reusable flow's definition as a real `Cypress.Commands.add(...)`
+ * (Phase 9, builder UX roadmap — "compile-ready" export). `def.body` is
+ * generated directly (never through `expandInvocation`'s literal
+ * substitution): each declared parameter's `{{key}}` token becomes that
+ * parameter's bare name via `paramNames` above, so the emitted function
+ * actually *uses* its own arguments instead of baking in whichever
+ * invocation happened to trigger generation.
+ *
+ * This is additive to `processFlow`, not a replacement — the ordinary code
+ * drawer keeps showing the existing inline-expansion preview (unchanged,
+ * every existing test for it still describes real behavior); this is used
+ * only by the separate "Build Test" compile-ready export
+ * (`engine/buildSpec.ts`), which calls `cy.<id>(...)` at each invocation site
+ * instead of inlining.
+ */
+export function generateReusableFlowCommand(
+  def: ReusableFlowDef,
+  reg: Registry = getRegistry(),
+  flows: ReusableFlowDef[] = getDefaultReusableFlows(),
+): string {
+  const paramNames = def.params.map((param) => param.key);
+  const bodyCode = def.body.map((node) => generateNode(node, reg, flows, [], { paramNames })).join('\n');
+  return `Cypress.Commands.add('${def.id}', (${paramNames.join(', ')}) => {\n${indent(bodyCode)}\n});`;
+}
+
+/**
+ * The literal argument values an invocation node passes, in a definition's
+ * declared parameter order — e.g. `['testuser', 'hunter2']` for a `login`
+ * invocation's `username`/`password` props. Used by `engine/buildSpec.ts` to
+ * emit `cy.login('testuser', 'hunter2');` at a call site instead of inlining
+ * the expanded body. Each value is escaped exactly like an ordinary `text`
+ * prop (`escapeSingleQuoted`) — a reusable flow's declared parameters are
+ * always plain text/number/etc. values at the call site, the same shape
+ * `resolveInvocationSchema` (engine/reusableFlows.ts) already builds fields
+ * for.
+ */
+export function reusableFlowCallArgs(node: FlowNode, def: ReusableFlowDef): string {
+  return def.params
+    .map((param) => {
+      const raw = node.props?.[param.key] ?? '';
+      if (param.type === 'number') return numberToken(raw) ?? '';
+      if (param.type === 'binding') return bindingToken(raw) ?? '';
+      if (param.type === 'expression') return raw.trim();
+      return `'${escapeSingleQuoted(raw)}'`;
+    })
+    .join(', ');
 }

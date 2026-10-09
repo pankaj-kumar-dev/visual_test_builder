@@ -3,16 +3,25 @@ import { useAppSelector } from './hooks';
 import { Header } from './Header';
 import { Canvas } from '../ui/canvas/Canvas';
 import { Palette } from '../ui/palette/Palette';
+import { BuildPanel } from '../ui/output/BuildPanel';
 import { CodeDrawer } from '../ui/output/CodeDrawer';
 import { PropertyEditor } from '../ui/properties/PropertyEditor';
 import { ValidationPanel } from '../ui/validation/ValidationPanel';
 import { LandingPage } from './LandingPage';
+import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 export function App() {
   const [showLanding, setShowLanding] = useState(true);
   const isCodeDrawerOpen = useAppSelector((state) => state.isCodeDrawerOpen);
   const isValidationPanelOpen = useAppSelector((state) => state.isValidationPanelOpen);
-  const isSidePanelOpen = isCodeDrawerOpen || isValidationPanelOpen;
+  const isBuildPanelOpen = useAppSelector((state) => state.isBuildPanelOpen);
+  const isSidePanelOpen = isCodeDrawerOpen || isValidationPanelOpen || isBuildPanelOpen;
+
+  // Hook order must stay unconditional (before the landing-page early return),
+  // but shortcuts are harmless while the landing page is showing — there is
+  // never a selected node yet, so Delete/Duplicate are no-ops and Undo/Redo
+  // simply have nothing to do.
+  useKeyboardShortcuts();
 
   if (showLanding) return <LandingPage onOpenBuilder={() => setShowLanding(false)} />;
 
@@ -61,6 +70,7 @@ export function App() {
 
         {isCodeDrawerOpen && <CodeDrawer />}
         {isValidationPanelOpen && <ValidationPanel />}
+        {isBuildPanelOpen && <BuildPanel />}
       </div>
     </div>
   );

@@ -36,8 +36,25 @@
  *                   itself uses at runtime (`cy.get('@alias')`) — recognized
  *                   by engine/references.ts, not a separate type; see
  *                   `PropDef.acceptsReference` for the picker-UI hint.
+ *  - `selector`   — Phase 7: a CSS-selector-shaped `text` field with a small
+ *                   convention picker (CSS / id / class / data-testid) beside
+ *                   the input (`ui/properties/PropertyField.tsx`). The picker
+ *                   only ever prefills the field when it's still empty — it
+ *                   is a typing shortcut, not a second stored value — so this
+ *                   is otherwise byte-for-byte identical to `text` everywhere
+ *                   else: generation (`engine/processFlow.ts`'s `resolveProps`)
+ *                   and validation (`engine/propValue.ts`'s `isValuePresent`)
+ *                   both already treat any type they don't special-case as
+ *                   plain text, so neither needed a change for this variant.
  */
-export type PropType = 'text' | 'dropdown' | 'number' | 'binding' | 'expression' | 'reference-name';
+export type PropType =
+  | 'text'
+  | 'dropdown'
+  | 'number'
+  | 'binding'
+  | 'expression'
+  | 'reference-name'
+  | 'selector';
 
 /**
  * Semantic facts about where a node sits in the flow, derived from the Flow JSON
@@ -141,6 +158,19 @@ export interface PropDef {
    * flag only decides whether the picker UI appears.
    */
   acceptsReference?: boolean;
+  /**
+   * Phase 7: render this field inside the property editor's collapsed
+   * "Advanced" section instead of the primary list — for a field that's
+   * genuinely secondary (a retry timeout, an assertion's `have.length`
+   * count), not one most users need to see by default. Presentational only,
+   * exactly like `PaletteMetadata.common`'s opposite number: an advanced
+   * field is otherwise completely ordinary — ungated required fields are
+   * never marked advanced in this registry, but if one ever were, the
+   * section still renders its own value/required state and participates in
+   * unresolved detection exactly like any other field, so it could never be
+   * silently hidden while actually missing.
+   */
+  advanced?: boolean;
 }
 
 /**
@@ -169,6 +199,17 @@ export interface PaletteMetadata {
    * from one specific UI surface, nothing else.
    */
   hidden?: boolean;
+  /**
+   * Phase 6: surface this node in the palette's pinned "Common" section, in
+   * addition to its ordinary category/subgroup placement — a curated
+   * shortlist of the handful of commands most tests reach for first (visit,
+   * get, click, type, …), so a new user isn't required to learn the full
+   * taxonomy before building a first flow. Presentational only, like the rest
+   * of `PaletteMetadata`: a node tagged `common` is otherwise identical, drags
+   * and validates exactly the same way whether picked from "Common" or from
+   * its own category.
+   */
+  common?: boolean;
 }
 
 /**
@@ -309,6 +350,18 @@ export interface StructuralNodeDef extends PaletteMetadata {
    * interprets it, never a `node.type === 'switch'` check.
    */
   childCardinality?: Record<string, { min?: number; max?: number; label?: string }>;
+  /**
+   * Phase 6: a curated, human-readable one-line summary for the tree row —
+   * `{{key}}` placeholders filled from this node's own `props`
+   * (`engine/nodeSummary.ts`'s `renderSummaryTemplate`), e.g. Type's
+   * `"{{selector}} → \"{{value}}\""` reading as `#email → "user@example.com"`
+   * instead of just `#email`. Display-only: never consulted by generation or
+   * validation, and never required — when absent, or when a placeholder has
+   * no usable value, `TreeNode.tsx` falls back to its existing generic
+   * "first configured prop" summary, so this is purely an opt-in upgrade for
+   * a handful of the most-used commands.
+   */
+  summaryTemplate?: string;
 }
 
 /**
@@ -359,6 +412,10 @@ export interface CommandNodeDef extends PaletteMetadata {
    * the alias itself is the exact same Phase 3 reference produced by `as`.
    */
   requiresTriggerBeforeUse?: boolean;
+  /** Phase 6: see `StructuralNodeDef.summaryTemplate` — identical contract, a
+   * command-side property purely because `CommandNodeDef` and
+   * `StructuralNodeDef` are separate interfaces, not a different mechanism. */
+  summaryTemplate?: string;
 }
 
 /**
@@ -394,6 +451,23 @@ export interface ReusableFlowDef {
   description?: string;
   params: FlowParamDef[];
   body: FlowNode[];
+}
+
+/**
+ * Phase 8: a starter test template (`config/testTemplates.json`) — a
+ * complete, pre-built flow a user can load onto an empty canvas instead of
+ * starting from a blank describe/it. `flow` is an ordinary `FlowNode` tree,
+ * the same shape as `AppState.flow` — loading a template is just `LOAD_FLOW`
+ * with fresh ids substituted throughout (`state/flowTree.ts`'s
+ * `cloneWithNewIds`), so two instantiations of the same template never share
+ * an id. Static config, like the registry — never mutated at runtime (authoring
+ * a new template is out of scope, same as the registry itself).
+ */
+export interface TestTemplateDef {
+  id: string;
+  name: string;
+  description: string;
+  flow: FlowNode;
 }
 
 /**
@@ -455,4 +529,35 @@ export interface AppState {
     past: (FlowNode | null)[];
     future: (FlowNode | null)[];
   };
+  /**
+   * Phase 8: multi-select — ids beyond the single `selectedNodeId`, keyed by
+   * stable node id (same "set via object" precedent as `collapsedNodeIds`).
+   * Empty means "not in multi-select mode": every consumer treats the
+   * effective selected set as `selectedNodeId` alone in that case, never as
+   * zero nodes — see `app/hooks.ts`'s `useSelectedNodeIds`, the single place
+   * that combines the two into one derived set so no component re-implements
+   * the "empty means fall back to the primary" rule itself. Pure UI state,
+   * same as `selectedNodeId` and `collapsedNodeIds` — never part of the Flow
+   * JSON, never read by `processFlow`.
+   */
+  multiSelectedIds: Record<string, true>;
+  /**
+   * Phase 8: shift-click range-select's anchor — the fixed endpoint repeated
+   * shift-clicks extend from (the file-manager convention: click A, then
+   * shift-click D selects A..D; shift-clicking B next selects A..B, not
+   * D..B, because the anchor never moves on a shift-click itself). Set by a
+   * plain click or a Ctrl/Cmd toggle (`SELECT_NODE`/`TOGGLE_MULTI_SELECT`);
+   * left untouched by `SELECT_RANGE`. A stale id (its node was deleted, or a
+   * new flow loaded) is handled by `SELECT_RANGE` falling back to a plain
+   * selection, not by proactively clearing this — see
+   * `state/builderSlice.ts`.
+   */
+  rangeAnchorId: string | null;
+  /**
+   * Phase 9: whether the "Build Test" compile-ready panel is open. Pure UI
+   * state, same precedent as `isCodeDrawerOpen`/`isValidationPanelOpen` — the
+   * panel's own content (`engine/buildSpec.ts` + `engine/compileCheck.ts`'s
+   * output) is always re-derived from `flow`/`reusableFlows`, never stored.
+   */
+  isBuildPanelOpen: boolean;
 }

@@ -30,6 +30,8 @@ export interface PaletteNode {
   keywords?: string[];
   group?: string;
   subgroup?: string;
+  /** Phase 6: pinned in the palette's "Common" section (`PaletteMetadata.common`). */
+  common?: boolean;
 }
 
 export interface PaletteSubgroup {
@@ -76,6 +78,7 @@ function toPaletteNode(def: StructuralNodeDef | CommandNodeDef): PaletteNode {
     keywords: def.keywords,
     group: def.group,
     subgroup: def.subgroup,
+    common: def.common,
   };
 }
 
@@ -88,6 +91,17 @@ export function collectPaletteNodes(registry: Registry): PaletteNode[] {
     ...registry.getAllBlocks().filter((def) => !def.hidden).map(toPaletteNode),
     ...registry.getAllFunctions().filter((def) => !def.hidden).map(toPaletteNode),
   ];
+}
+
+/**
+ * The curated "Common" shortlist (Phase 6, `PaletteMetadata.common`), in
+ * registry order. A thin filter over `collectPaletteNodes` — not a separate
+ * taxonomy — so a common node is still a completely ordinary palette item
+ * everywhere else (its own category, search results); this is purely an
+ * additional, pinned way to reach it.
+ */
+export function collectCommonNodes(registry: Registry): PaletteNode[] {
+  return collectPaletteNodes(registry).filter((node) => node.common);
 }
 
 /**
